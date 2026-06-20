@@ -11,14 +11,47 @@ export async function POST(request: Request) {
   
   try {
     const supabase = await createClient()
-    console.log('Supabase client created')
-    
     const { data: { user } } = await supabase.auth.getUser()
-    console.log('User:', user?.email || 'no user')
-
+    
     if (!user) {
       console.log('ERROR: No user found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check user's plan and meeting count
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', user.id)
+      .single()
+
+    const isPro = profile?.plan === 'pro'
+
+    // Count meetings this month for free users
+    if (!isPro) {
+      const startOfMonth = new Date()
+      startOfMonth.setDate(1)
+      startOfMonth.setHours(0, 0, 0, 0)
+
+      const { count } = await supabase
+        .from('meetings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', startOfMonth.toISOString())
+
+      const meetingCount = count || 0
+      const freeLimit = 5
+
+      if (meetingCount >= freeLimit) {
+        return NextResponse.json(
+          { 
+            error: 'Free limit reached',
+            details: `You've used ${meetingCount} of ${freeLimit} free meetings this month. Upgrade to Pro for unlimited meetings.`,
+            upgradeUrl: '/#pricing'
+          },
+          { status: 403 }
+        )
+      }
     }
 
     const { title, transcript } = await request.json()

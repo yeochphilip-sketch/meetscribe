@@ -8,6 +8,32 @@ export default async function HomePage() {
 
   if (!user) redirect('/login')
 
+  // Get user profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  const isPro = profile?.plan === 'pro'
+  const planName = isPro ? 'Pro' : 'Free'
+
+  // Count meetings this month
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  const { count } = await supabase
+    .from('meetings')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .gte('created_at', startOfMonth.toISOString())
+
+  const meetingCount = count || 0
+  const freeLimit = 5
+  const remainingMeetings = isPro ? 'Unlimited' : Math.max(0, freeLimit - meetingCount)
+  const atLimit = !isPro && meetingCount >= freeLimit
+
   const { data: meetings } = await supabase
     .from('meetings')
     .select('*')
@@ -21,7 +47,6 @@ export default async function HomePage() {
     redirect('/login')
   }
 
-  // Get first letter of email for avatar fallback
   const avatarLetter = user.email?.charAt(0).toUpperCase() || 'U'
 
   return (
@@ -29,7 +54,6 @@ export default async function HomePage() {
       {/* Header */}
       <header className="border-b border-slate-800 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="flex gap-1 items-end">
               {[30, 50, 70, 90, 70, 50, 30].map((h, i) => (
@@ -43,38 +67,55 @@ export default async function HomePage() {
             <span className="text-xl font-bold">MeetScribe</span>
           </div>
 
-          {/* Profile Dropdown */}
-          <div className="relative group">
-            <button className="flex items-center gap-3 hover:bg-slate-800 rounded-lg p-2 transition">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-sm font-bold">
-                {avatarLetter}
-              </div>
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-4">
+            {!isPro && (
+              <Link
+                href="/#pricing"
+                className="bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:from-yellow-400 hover:to-amber-400 transition"
+              >
+                Upgrade to Pro
+              </Link>
+            )}
+            {isPro && (
+              <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/30">
+                PRO
+              </span>
+            )}
 
-            {/* Dropdown Menu */}
-            <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-              <div className="p-4 border-b border-slate-700">
-                <p className="text-sm font-medium text-white truncate">{user.email}</p>
-                <p className="text-xs text-slate-500 mt-1">Free Plan</p>
-              </div>
-              <div className="p-2">
-                <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  Dashboard
-                </Link>
-                <form action={signOut}>
-                  <button type="submit" className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition text-left">
+            <div className="relative group">
+              <button className="flex items-center gap-3 hover:bg-slate-800 rounded-lg p-2 transition">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-sm font-bold">
+                  {avatarLetter}
+                </div>
+                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="p-4 border-b border-slate-700">
+                  <p className="text-sm font-medium text-white truncate">{user.email}</p>
+                  <p className="text-xs text-slate-500 mt-1">{planName} Plan</p>
+                  {!isPro && (
+                    <p className="text-xs text-slate-500 mt-1">{remainingMeetings} meetings left</p>
+                  )}
+                </div>
+                <div className="p-2">
+                  <Link href="/" className="flex items-center gap-3 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                     </svg>
-                    Sign out
-                  </button>
-                </form>
+                    Dashboard
+                  </Link>
+                  <form action={signOut}>
+                    <button type="submit" className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-slate-700 rounded-lg transition text-left">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Sign out
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           </div>
@@ -86,15 +127,49 @@ export default async function HomePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Your Meetings</h1>
-            <p className="text-slate-500 mt-1">{meetings?.length || 0} meetings processed</p>
+            <p className="text-slate-500 mt-1">{meetingCount} meetings this month</p>
           </div>
-          <Link href="/new" className="bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center gap-2">
+          <Link 
+            href={atLimit ? '/#pricing' : '/new'} 
+            className={`px-6 py-3 rounded-lg font-semibold transition flex items-center gap-2 ${
+              atLimit 
+                ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white hover:from-yellow-400 hover:to-amber-400' 
+                : 'bg-sky-500 hover:bg-sky-600 text-white'
+            }`}
+          >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            New Meeting
+            {atLimit ? 'Upgrade to Pro' : 'New Meeting'}
           </Link>
         </div>
+
+        {atLimit && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6 mb-8 text-center">
+            <p className="text-yellow-400 font-semibold mb-2">You've reached your free limit</p>
+            <p className="text-slate-400 text-sm mb-4">Upgrade to Pro for unlimited meetings</p>
+            <Link
+              href="/#pricing"
+              className="inline-block bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-6 py-2 rounded-lg font-semibold hover:from-yellow-400 hover:to-amber-400 transition"
+            >
+              Upgrade to Pro - $15/month
+            </Link>
+          </div>
+        )}
+
+        {!atLimit && !isPro && (
+          <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 mb-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-sky-400 rounded-full" />
+              <p className="text-sm text-slate-300">
+                {remainingMeetings} free meetings remaining this month
+              </p>
+            </div>
+            <Link href="/#pricing" className="text-sm text-sky-400 hover:text-sky-300 font-medium">
+              Upgrade →
+            </Link>
+          </div>
+        )}
 
         {meetings && meetings.length > 0 ? (
           <div className="grid gap-4">
