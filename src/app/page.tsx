@@ -1,69 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Mic, Sparkles, FileText, Zap, Shield, Users,
   ArrowRight, Check, Menu, X,
 } from "lucide-react";
 import Link from "next/link";
 
-function CustomCursor() {
-  const cursorRef = useRef(null);
-  const [isHovering, setIsHovering] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    const cursor = cursorRef.current;
-    if (!cursor) return;
-    const onMouseMove = (e) => {
-      cursor.style.left = e.clientX + "px";
-      cursor.style.top = e.clientY + "px";
-      if (!isVisible) setIsVisible(true);
-    };
-    const onMouseEnter = () => setIsVisible(true);
-    const onMouseLeave = () => setIsVisible(false);
-    const addHoverListeners = () => {
-      const hoverables = document.querySelectorAll(
-        'a, button, [role="button"], input, textarea, select, [data-cursor="pointer"]'
-      );
-      hoverables.forEach((el) => {
-        el.addEventListener("mouseenter", () => setIsHovering(true));
-        el.addEventListener("mouseleave", () => setIsHovering(false));
-      });
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseenter", onMouseEnter);
-    document.addEventListener("mouseleave", onMouseLeave);
-    const observer = new MutationObserver(addHoverListeners);
-    observer.observe(document.body, { childList: true, subtree: true });
-    addHoverListeners();
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseenter", onMouseEnter);
-      document.removeEventListener("mouseleave", onMouseLeave);
-      observer.disconnect();
-    };
-  }, [isVisible]);
-
-  return (
-    <div ref={cursorRef}
-      className={`fixed pointer-events-none z-[9999] transition-transform duration-150 ease-out ${isVisible ? "opacity-100" : "opacity-0"}`}
-      style={{ transform: `translate(-50%, -50%) scale(${isHovering ? 1.5 : 1})`, width: "32px", height: "32px", marginLeft: "-4px", marginTop: "-4px" }}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        className={`w-full h-full text-white drop-shadow-lg transition-all duration-200 ${isHovering ? "text-indigo-400" : "text-white"}`}>
-        <path d="M14 9l-8.5 8.5c-.83.83-.83 2.17 0 3 .83.83 2.17.83 3 0l8.5-8.5" />
-        <path d="M14 9l-3.5-3.5c-.83-.83-2.17-.83-3 0-.83.83-.83 2.17 0 3L14 9" />
-        <line x1="14" y1="9" x2="20" y2="3" />
-        <line x1="20" y1="3" x2="20" y2="9" />
-        <line x1="20" y1="3" x2="14" y2="3" />
-      </svg>
-    </div>
-  );
-}
-
 function GradientBackground() {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
       <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" />
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[100px] animate-pulse delay-1000" />
       <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
@@ -81,7 +27,7 @@ function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const scrollToSection = (id) => {
+  const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) { element.scrollIntoView({ behavior: "smooth" }); setMobileMenuOpen(false); }
   };
@@ -90,7 +36,7 @@ function Navbar() {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5" : "bg-transparent"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link href="/" className="flex items-center gap-2.5 group" data-cursor="pointer">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
               <Mic className="w-4 h-4 text-white" />
             </div>
@@ -102,7 +48,7 @@ function Navbar() {
               const id = label.toLowerCase().replace(/ /g, "-");
               return (
                 <button key={id} onClick={() => scrollToSection(id)}
-                  className="text-sm text-gray-400 hover:text-white transition-colors relative group" data-cursor="pointer">
+                  className="text-sm text-gray-400 hover:text-white transition-colors relative group">
                   {label}
                   <span className="absolute -bottom-1 left-0 w-0 h-px bg-indigo-500 transition-all duration-300 group-hover:w-full" />
                 </button>
@@ -111,14 +57,14 @@ function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors" data-cursor="pointer">Sign in</Link>
-            <Link href="/login" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25" data-cursor="pointer">
+            <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign in</Link>
+            <Link href="/login" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25">
               <span className="relative z-10">Get started free</span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
           </div>
 
-          <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} data-cursor="pointer">
+          <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -128,9 +74,9 @@ function Navbar() {
         <div className="md:hidden bg-[#0a0a0f]/95 backdrop-blur-xl border-b border-white/5">
           <div className="px-4 py-4 space-y-3">
             {["features", "how-it-works", "pricing", "testimonials"].map((id) => (
-              <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left text-gray-400 hover:text-white py-2 capitalize" data-cursor="pointer">{id.replace("-", " ")}</button>
+              <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left text-gray-400 hover:text-white py-2 capitalize">{id.replace("-", " ")}</button>
             ))}
-            <Link href="/login" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white" data-cursor="pointer">Get started free</Link>
+            <Link href="/login" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white">Get started free</Link>
           </div>
         </div>
       )}
@@ -157,9 +103,9 @@ function HeroSection() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mb-12">
             <input type="email" placeholder="Your work email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 rounded-xl bg-white/5 border border-white/10 px-5 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all" data-cursor="pointer" />
+              className="flex-1 rounded-xl bg-white/5 border border-white/10 px-5 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all" />
             <Link href={`/login?email=${encodeURIComponent(email)}`}
-              className="relative group overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-3.5 text-sm font-semibold text-white transition-all hover:shadow-xl hover:shadow-indigo-500/25 whitespace-nowrap" data-cursor="pointer">
+              className="relative group overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-3.5 text-sm font-semibold text-white transition-all hover:shadow-xl hover:shadow-indigo-500/25 whitespace-nowrap">
               <span className="relative z-10 flex items-center justify-center gap-2">Start for free <ArrowRight className="w-4 h-4" /></span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
@@ -226,7 +172,7 @@ function FeaturesSection() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
-            <div key={index} className="group relative rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:bg-white/[0.04] transition-all duration-300 hover:border-white/20" data-cursor="pointer">
+            <div key={index} className="group relative rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:bg-white/[0.04] transition-all duration-300 hover:border-white/20">
               <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} p-0.5 mb-4`}>
                 <div className="w-full h-full rounded-[10px] bg-[#0d0d12] flex items-center justify-center text-white">{feature.icon}</div>
               </div>
@@ -256,7 +202,7 @@ function HowItWorksSection() {
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {steps.map((step, index) => (
-            <div key={index} className="relative group" data-cursor="pointer">
+            <div key={index} className="relative group">
               <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8 hover:bg-white/[0.04] transition-all duration-300 h-full">
                 <span className="text-5xl font-bold bg-gradient-to-r from-indigo-500/30 to-purple-500/30 bg-clip-text text-transparent">{step.number}</span>
                 <h3 className="text-xl font-semibold text-white mt-4 mb-3">{step.title}</h3>
@@ -287,7 +233,7 @@ function PricingSection() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan, index) => (
-            <div key={index} className={`relative rounded-2xl p-8 transition-all duration-300 ${plan.popular ? "border-2 border-indigo-500/50 bg-gradient-to-b from-indigo-500/10 to-transparent" : "border border-white/10 bg-white/[0.02] hover:border-white/20"}`} data-cursor="pointer">
+            <div key={index} className={`relative rounded-2xl p-8 transition-all duration-300 ${plan.popular ? "border-2 border-indigo-500/50 bg-gradient-to-b from-indigo-500/10 to-transparent" : "border border-white/10 bg-white/[0.02] hover:border-white/20"}`}>
               {plan.popular && <div className="absolute -top-4 left-1/2 -translate-x-1/2"><span className="rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-1 text-xs font-semibold text-white">Most Popular</span></div>}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-white mb-2">{plan.name}</h3>
@@ -299,7 +245,7 @@ function PricingSection() {
                   <li key={i} className="flex items-start gap-3 text-sm text-gray-300"><Check className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />{feature}</li>
                 ))}
               </ul>
-              <Link href="/login" className={`block w-full text-center rounded-xl py-3 text-sm font-semibold transition-all ${plan.popular ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25" : "bg-white/5 text-white border border-white/10 hover:bg-white/10"}`} data-cursor="pointer">{plan.cta}</Link>
+              <Link href="/login" className={`block w-full text-center rounded-xl py-3 text-sm font-semibold transition-all ${plan.popular ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25" : "bg-white/5 text-white border border-white/10 hover:bg-white/10"}`}>{plan.cta}</Link>
             </div>
           ))}
         </div>
@@ -327,8 +273,8 @@ function TestimonialsSection() {
         </div>
         <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
           {testimonials.map((testimonial, index) => (
-            <div key={index} className="break-inside-avoid rounded-2xl border border-white/10 bg-white/[0.03] p-6 hover:bg-white/[0.05] transition-all duration-300" data-cursor="pointer">
-              <p className="text-gray-300 text-sm leading-relaxed mb-6">&ldquo;{testimonial.content}&rdquo;</p>
+            <div key={index} className="break-inside-avoid rounded-2xl border border-white/10 bg-white/[0.03] p-6 hover:bg-white/[0.05] transition-all duration-300">
+              <p className="text-gray-300 text-sm leading-relaxed mb-6">"{testimonial.content}"</p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-semibold">{testimonial.avatar}</div>
                 <div>
@@ -352,14 +298,14 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2">
-            <Link href="/" className="flex items-center gap-2.5 mb-4" data-cursor="pointer">
+            <Link href="/" className="flex items-center gap-2.5 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center"><Mic className="w-4 h-4 text-white" /></div>
               <span className="text-xl font-bold text-white">MeetScribe</span>
             </Link>
             <p className="text-gray-500 text-sm max-w-xs mb-4">AI-powered meeting notes for sales teams. Turn every conversation into a closed deal.</p>
             <div className="flex items-center gap-4">
               {["Twitter", "LinkedIn", "GitHub", "Discord"].map((social) => (
-                <button key={social} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all text-xs" data-cursor="pointer">{social[0]}</button>
+                <button key={social} className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all text-xs">{social[0]}</button>
               ))}
             </div>
           </div>
@@ -368,14 +314,14 @@ function Footer() {
               <h4 className="text-white font-semibold text-sm mb-4">{category}</h4>
               <ul className="space-y-2">
                 {items.map((item) => (
-                  <li key={item}><button className="text-gray-500 hover:text-white text-sm transition-colors" data-cursor="pointer">{item}</button></li>
+                  <li key={item}><button className="text-gray-500 hover:text-white text-sm transition-colors">{item}</button></li>
                 ))}
               </ul>
             </div>
           ))}
         </div>
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-gray-600 text-sm">&copy; 2026 MeetScribe, Inc. All rights reserved.</p>
+          <p className="text-gray-600 text-sm">© 2026 MeetScribe, Inc. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <span className="text-gray-600 text-sm flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />All systems operational</span>
           </div>
@@ -387,16 +333,17 @@ function Footer() {
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden cursor-none">
-      <CustomCursor />
+    <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden relative">
       <GradientBackground />
-      <Navbar />
-      <HeroSection />
-      <FeaturesSection />
-      <HowItWorksSection />
-      <PricingSection />
-      <TestimonialsSection />
-      <Footer />
-    </main>
+      <div className="relative z-10">
+        <Navbar />
+        <HeroSection />
+        <FeaturesSection />
+        <HowItWorksSection />
+        <PricingSection />
+        <TestimonialsSection />
+        <Footer />
+      </div>
+    </div>
   );
 }

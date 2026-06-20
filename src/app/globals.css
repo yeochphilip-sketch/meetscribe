@@ -3,21 +3,14 @@
 @tailwind utilities;
 
 @layer base {
-  @media (hover: hover) and (pointer: fine) {
-    body { cursor: none !important; }
-    a, button, [role="button"], input, textarea, select, [data-cursor="pointer"] { cursor: none !important; }
+  html {
+    background-color: #0a0a0f;
+    color: #ffffff;
   }
-  @media (hover: none) or (pointer: coarse) {
-    body, a, button, [role="button"], input, textarea, select { cursor: auto !important; }
+
+  body {
+    background-color: #0a0a0f;
+    color: #ffffff;
+    min-height: 100vh;
   }
-}
-
-@layer utilities {
-  .animate-pulse { animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-  .delay-1000 { animation-delay: 1s; }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
 }
