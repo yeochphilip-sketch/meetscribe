@@ -1,13 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
 export default function PlanContent() {
   const [loading, setLoading] = useState<string | null>(null);
+  const [checking, setChecking] = useState(true);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    const checkExistingPlan = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', user.id)
+          .single();
+
+        // If user already has a paid plan, go to dashboard
+        if (profile?.plan && profile.plan !== 'free') {
+          router.push('/dashboard');
+        }
+      }
+      setChecking(false);
+    };
+
+    checkExistingPlan();
+  }, [router, supabase]);
 
   const plans = [
     {
@@ -42,10 +64,7 @@ export default function PlanContent() {
     },
   ];
 
-  const handleSelectPlan = async (planId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Selected plan:', planId);
+  const handleSelectPlan = async (planId: string) => {
     setLoading(planId);
 
     if (planId === 'free') {
@@ -74,6 +93,14 @@ export default function PlanContent() {
 
     setLoading(null);
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4 py-12">
@@ -120,7 +147,7 @@ export default function PlanContent() {
 
             <button
               type="button"
-              onClick={(e) => handleSelectPlan(plan.id, e)}
+              onClick={() => handleSelectPlan(plan.id)}
               disabled={loading === plan.id}
               className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
                 plan.popular

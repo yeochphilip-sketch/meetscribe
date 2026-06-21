@@ -1,37 +1,58 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { updateSession } from '@/utils/supabase/middleware';
+import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public routes that don't need auth at all
-  const publicRoutes = ['/', '/login', '/auth/callback'];
+  // Public routes — no auth needed
+  const publicRoutes = ['/', '/login', '/auth/callback', '/api'];
   const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
   
   if (isPublic || pathname.startsWith('/_next') || pathname.includes('.')) {
-    return await updateSession(request);
+    return NextResponse.next();
   }
 
-  // Allow API routes
-  if (pathname.startsWith('/api/')) {
-    return await updateSession(request);
+  // Create Supabase client to check auth
+  let response = NextResponse.next({
+    request: { headers: request.headers },
+  });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Not authenticated — redirect to login
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // For all other routes, check auth
-  let response = await updateSession(request);
-  
-  // Create a temporary request with the updated cookies to check auth
-  const tempReq = new NextRequest(request.url, {
-    headers: request.headers,
-  });
-  
-  // Copy cookies from response to temp request
-  response.cookies.getAll().forEach(cookie => {
-    tempReq.cookies.set(cookie.name, cookie.value);
-  });
+  // Authenticated users on login/onboarding — redirect to plan page
+  // (plan page will check if they already have a plan)
+  if (pathname === '/login' || pathname === '/onboarding') {
+    return NextResponse.redirect(new URL('/plan', request.url));
+  }
 
-  // We can't easily check auth in middleware without creating a client
-  // So let the pages handle their own auth checks
+  // Allow all other routes for authenticated users
+  // Pages will handle their own plan checks
   return response;
 }
 

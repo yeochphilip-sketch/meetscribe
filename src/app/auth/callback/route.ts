@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
     if (!error) {
       // Always redirect to plan page after successful auth
-      // The plan page will check if user already has a plan
+      // Plan page will check if user already has a plan
       return NextResponse.redirect(new URL('/plan', req.url));
     }
   }
