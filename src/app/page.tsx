@@ -220,8 +220,8 @@ function HowItWorksSection() {
 function PricingSection() {
   const plans = [
     { name: "Free", price: "$0", period: "/month", description: "Perfect for trying out MeetScribe", features: ["5 meetings per month", "Basic AI summaries", "Action items extraction", "7-day history", "Email support"], cta: "Get started free", href: "/onboarding", popular: false },
-    { name: "Pro", price: "$15", period: "/month", description: "For sales professionals who close deals", features: ["Unlimited meetings", "Advanced AI summaries", "CRM integrations (HubSpot, Salesforce)", "Priority AI processing", "Unlimited history", "Team collaboration", "Export to PDF & Word", "Priority support"], cta: "Start Pro trial", popular: true },
-    { name: "Enterprise", price: "Custom", period: "", description: "For teams that need more power", features: ["Everything in Pro", "SSO & SAML", "Custom AI training", "Dedicated account manager", "SLA guarantee", "On-premise deployment", "Advanced analytics"], cta: "Contact sales", popular: false },
+    { name: "Pro", price: "$15", period: "/month", description: "For sales professionals who close deals", features: ["Unlimited meetings", "Advanced AI summaries", "CRM integrations (HubSpot, Salesforce)", "Priority AI processing", "Unlimited history", "Team collaboration", "Export to PDF & Word", "Priority support"], cta: "Start Pro trial", href: "/plan", popular: true },
+    { name: "Enterprise", price: "Custom", period: "", description: "For teams that need more power", features: ["Everything in Pro", "SSO & SAML", "Custom AI training", "Dedicated account manager", "SLA guarantee", "On-premise deployment", "Advanced analytics"], cta: "Contact sales", href: "/plan", popular: false },
   ];
 
   return (
