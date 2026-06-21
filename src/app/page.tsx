@@ -104,7 +104,7 @@ function HeroSection() {
           <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mb-12">
             <input type="email" placeholder="Your work email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="flex-1 rounded-xl bg-white/5 border border-white/10 px-5 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all" />
-            <Link href={`/login?email=${encodeURIComponent(email)}`}
+            <Link href={`/onboarding?email=${encodeURIComponent(email)}`}
               className="relative group overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-3.5 text-sm font-semibold text-white transition-all hover:shadow-xl hover:shadow-indigo-500/25 whitespace-nowrap">
               <span className="relative z-10 flex items-center justify-center gap-2">Start for free <ArrowRight className="w-4 h-4" /></span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

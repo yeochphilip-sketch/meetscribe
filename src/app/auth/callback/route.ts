@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
 
   if (code) {
     const supabase = await createClient();
@@ -14,7 +13,6 @@ export async function GET(request: Request) {
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
       
-      // Always redirect to dashboard after successful OAuth
       if (isLocalEnv) {
         return NextResponse.redirect(`${origin}/dashboard`);
       } else if (forwardedHost) {
@@ -25,6 +23,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // Return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/auth/auth-code-error`);
 }

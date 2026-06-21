@@ -40,6 +40,28 @@ export default function DashboardPage() {
     };
 
     fetchData();
+    // Save onboarding data after OAuth signup
+    const saveOnboardingData = async () => {
+      const stored = localStorage.getItem("onboarding_data");
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.auth.updateUser({
+            data: {
+              full_name: data.name,
+              company: data.company,
+              role: data.role,
+            },
+          });
+          localStorage.removeItem("onboarding_data");
+        }
+      } catch (err) {
+        console.error("Failed to save onboarding data:", err);
+      }
+    };
+    saveOnboardingData();
 
   // Save onboarding data after OAuth signup
   useEffect(() => {
