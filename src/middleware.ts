@@ -4,8 +4,8 @@ import { createServerClient } from '@supabase/ssr';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public routes — no auth needed
-  const publicRoutes = ['/', '/login', '/auth/callback', '/api'];
+  // Public routes — no auth needed at all
+  const publicRoutes = ['/', '/login', '/auth/callback', '/api', '/onboarding'];
   const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
   
   if (isPublic || pathname.startsWith('/_next') || pathname.includes('.')) {
@@ -45,8 +45,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Allow all routes for authenticated users
-  // Auth callback and pages handle their own redirects
+  // Allow all other routes for authenticated users
   return response;
 }
 
