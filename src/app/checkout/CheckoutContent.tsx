@@ -99,41 +99,24 @@ export default function CheckoutContent() {
           return;
         }
 
-        const baseUrl = window.location.origin;
-        const apiUrl = `${baseUrl}/api/create-payment-intent`;
-        
-        console.log('Base URL:', baseUrl);
-        console.log('API URL:', apiUrl);
-        console.log('Plan:', plan);
-        console.log('User ID:', user.id);
-
-        const res = await fetch(apiUrl, {
+        const res = await fetch('/api/create-payment-intent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ plan, userId: user.id }),
         });
 
-        console.log('Response status:', res.status);
-        console.log('Response URL:', res.url);
-
         if (!res.ok) {
           const errorText = await res.text();
-          console.error('API error response:', errorText);
-          throw new Error(`API returned ${res.status}: ${errorText || 'No response body'}`);
+          throw new Error(`Payment failed: ${res.status}`);
         }
 
         const data = await res.json();
-        console.log('Response data:', data);
-
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
-        } else if (data.error) {
-          throw new Error(data.error);
         } else {
           throw new Error('No client secret returned');
         }
       } catch (err: any) {
-        console.error('Payment intent error:', err);
         setError(err.message || 'Failed to load payment form');
       } finally {
         setLoading(false);

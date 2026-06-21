@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
       const { userId, plan } = paymentIntent.metadata;
 
       if (userId && plan) {
-        // Update profile
         await supabase
           .from('profiles')
           .update({
@@ -38,7 +37,6 @@ export async function POST(req: NextRequest) {
           })
           .eq('id', userId);
 
-        // Update payment record
         await supabase
           .from('payments')
           .update({ status: 'succeeded' })
@@ -49,7 +47,6 @@ export async function POST(req: NextRequest) {
 
     case 'payment_intent.payment_failed': {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      
       await supabase
         .from('payments')
         .update({ status: 'failed' })

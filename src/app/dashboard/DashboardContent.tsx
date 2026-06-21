@@ -11,6 +11,7 @@ export default function DashboardContent() {
   const [showToast, setShowToast] = useState(false);
   const [meetings, setMeetings] = useState<any[]>([]);
   const [stats, setStats] = useState({ total: 0, thisWeek: 0 });
+  const [plan, setPlan] = useState('free');
   const supabase = createClient();
 
   useEffect(() => {
@@ -23,7 +24,23 @@ export default function DashboardContent() {
 
   useEffect(() => {
     fetchMeetings();
+    fetchPlan();
   }, []);
+
+  const fetchPlan = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan')
+      .eq('id', user.id)
+      .single();
+    
+    if (profile?.plan) {
+      setPlan(profile.plan);
+    }
+  };
 
   const fetchMeetings = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -48,14 +65,13 @@ export default function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Success Toast */}
       {showToast && (
         <div className="fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in">
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Payment successful! Welcome to your new plan.</span>
+            <span>Payment successful! Welcome to Pro.</span>
           </div>
         </div>
       )}
@@ -74,7 +90,6 @@ export default function DashboardContent() {
           </Link>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <p className="text-gray-400 text-sm">Total Meetings</p>
@@ -86,11 +101,10 @@ export default function DashboardContent() {
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <p className="text-gray-400 text-sm">Plan</p>
-            <p className="text-3xl font-bold mt-1 capitalize">Pro</p>
+            <p className="text-3xl font-bold mt-1 capitalize">{plan}</p>
           </div>
         </div>
 
-        {/* Meetings List */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-800">
             <h2 className="text-lg font-semibold">Recent Meetings</h2>
