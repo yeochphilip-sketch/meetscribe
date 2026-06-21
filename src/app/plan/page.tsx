@@ -119,7 +119,7 @@ export default function PlanPage() {
                   : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {loading === planId ? 'Processing...' : plan.cta}
+              {loading === plan.id ? 'Processing...' : plan.cta}
             </button>
           </div>
         ))}
