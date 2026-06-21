@@ -1,4 +1,71 @@
-"use client";
+#!/bin/bash
+# MeetScribe Setup Script
+# Run this from INSIDE your meetscribe repo directory
+
+set -e
+
+echo "🚀 MeetScribe Setup"
+echo ""
+
+# Verify we're in the right place
+if [ ! -f "package.json" ]; then
+    echo "❌ Error: No package.json found. Please cd into your meetscribe repo first."
+    exit 1
+fi
+
+# Install dependencies
+echo "📦 Installing dependencies..."
+npm install @upstash/redis @upstash/ratelimit stripe
+
+# Create directories
+echo "📁 Creating directories..."
+mkdir -p src/components src/lib src/app/api/stripe/checkout src/app/api/stripe/webhook src/app/upgrade supabase/migrations
+
+# Function to write files safely
+write_file() {
+    local file="$1"
+    shift
+    printf '%s\n' "$@" > "$file"
+    echo "  ✓ $file"
+}
+
+# 1. globals.css
+echo "📝 Writing globals.css..."
+write_file "src/app/globals.css" \
+    "@tailwind base;" \
+    "@tailwind components;" \
+    "@tailwind utilities;" \
+    "" \
+    "@layer base {" \
+    "  @media (hover: hover) and (pointer: fine) {" \
+    "    body { cursor: none !important; }" \
+    "    a, button, [role=\"button\"], input, textarea, select, [data-cursor=\"pointer\"] {" \
+    "      cursor: none !important;" \
+    "    }" \
+    "  }" \
+    "  @media (hover: none) or (pointer: coarse) {" \
+    "    body, a, button, [role=\"button\"], input, textarea, select {" \
+    "      cursor: auto !important;" \
+    "    }" \
+    "  }" \
+    "}" \
+    "" \
+    "@layer utilities {" \
+    "  .animate-pulse { animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }" \
+    "  .delay-1000 { animation-delay: 1s; }" \
+    "}" \
+    "" \
+    "@keyframes pulse {" \
+    "  0%, 100% { opacity: 0.4; }" \
+    "  50% { opacity: 0.8; }" \
+    "}"
+
+# 2. Landing page - we'll use a simpler approach with node
+# Since the file is too large for bash, let's create a node script to write it
+cat > /tmp/write-landing.js << 'NODEEOF'
+const fs = require('fs');
+
+const landingPage = `"use client";
 
 import { useState, useEffect, useRef } from "react";
 import {
@@ -47,10 +114,10 @@ function CustomCursor() {
 
   return (
     <div ref={cursorRef}
-      className={`fixed pointer-events-none z-[9999] transition-transform duration-150 ease-out ${isVisible ? "opacity-100" : "opacity-0"}`}
-      style={{ transform: `translate(-50%, -50%) scale(${isHovering ? 1.5 : 1})`, width: "32px", height: "32px", marginLeft: "-4px", marginTop: "-4px" }}>
+      className={\`fixed pointer-events-none z-[9999] transition-transform duration-150 ease-out \${isVisible ? "opacity-100" : "opacity-0"}\`}
+      style={{ transform: \`translate(-50%, -50%) scale(\${isHovering ? 1.5 : 1})\`, width: "32px", height: "32px", marginLeft: "-4px", marginTop: "-4px" }}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        className={`w-full h-full text-white drop-shadow-lg transition-all duration-200 ${isHovering ? "text-indigo-400" : "text-white"}`}>
+        className={\`w-full h-full text-white drop-shadow-lg transition-all duration-200 \${isHovering ? "text-indigo-400" : "text-white"}\`}>
         <path d="M14 9l-8.5 8.5c-.83.83-.83 2.17 0 3 .83.83 2.17.83 3 0l8.5-8.5" />
         <path d="M14 9l-3.5-3.5c-.83-.83-2.17-.83-3 0-.83.83-.83 2.17 0 3L14 9" />
         <line x1="14" y1="9" x2="20" y2="3" />
@@ -87,7 +154,7 @@ function Navbar() {
   };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5" : "bg-transparent"}`}>
+    <nav className={\`fixed top-0 left-0 right-0 z-50 transition-all duration-300 \${isScrolled ? "bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5" : "bg-transparent"}\`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
           <Link href="/" className="flex items-center gap-2.5 group" data-cursor="pointer">
@@ -158,7 +225,7 @@ function HeroSection() {
           <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mb-12">
             <input type="email" placeholder="Your work email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="flex-1 rounded-xl bg-white/5 border border-white/10 px-5 py-3.5 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all" data-cursor="pointer" />
-            <Link href={`/login?email=${encodeURIComponent(email)}`}
+            <Link href={\`/login?email=\${encodeURIComponent(email)}\`}
               className="relative group overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-3.5 text-sm font-semibold text-white transition-all hover:shadow-xl hover:shadow-indigo-500/25 whitespace-nowrap" data-cursor="pointer">
               <span className="relative z-10 flex items-center justify-center gap-2">Start for free <ArrowRight className="w-4 h-4" /></span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -227,7 +294,7 @@ function FeaturesSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <div key={index} className="group relative rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:bg-white/[0.04] transition-all duration-300 hover:border-white/20" data-cursor="pointer">
-              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} p-0.5 mb-4`}>
+              <div className={\`w-12 h-12 rounded-xl bg-gradient-to-br \${feature.gradient} p-0.5 mb-4\`}>
                 <div className="w-full h-full rounded-[10px] bg-[#0d0d12] flex items-center justify-center text-white">{feature.icon}</div>
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
@@ -287,7 +354,7 @@ function PricingSection() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan, index) => (
-            <div key={index} className={`relative rounded-2xl p-8 transition-all duration-300 ${plan.popular ? "border-2 border-indigo-500/50 bg-gradient-to-b from-indigo-500/10 to-transparent" : "border border-white/10 bg-white/[0.02] hover:border-white/20"}`} data-cursor="pointer">
+            <div key={index} className={\`relative rounded-2xl p-8 transition-all duration-300 \${plan.popular ? "border-2 border-indigo-500/50 bg-gradient-to-b from-indigo-500/10 to-transparent" : "border border-white/10 bg-white/[0.02] hover:border-white/20"}\`} data-cursor="pointer">
               {plan.popular && <div className="absolute -top-4 left-1/2 -translate-x-1/2"><span className="rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-1 text-xs font-semibold text-white">Most Popular</span></div>}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-white mb-2">{plan.name}</h3>
@@ -299,7 +366,7 @@ function PricingSection() {
                   <li key={i} className="flex items-start gap-3 text-sm text-gray-300"><Check className="w-4 h-4 text-indigo-400 mt-0.5 shrink-0" />{feature}</li>
                 ))}
               </ul>
-              <Link href="/login" className={`block w-full text-center rounded-xl py-3 text-sm font-semibold transition-all ${plan.popular ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25" : "bg-white/5 text-white border border-white/10 hover:bg-white/10"}`} data-cursor="pointer">{plan.cta}</Link>
+              <Link href="/login" className={\`block w-full text-center rounded-xl py-3 text-sm font-semibold transition-all \${plan.popular ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25" : "bg-white/5 text-white border border-white/10 hover:bg-white/10"}\`} data-cursor="pointer">{plan.cta}</Link>
             </div>
           ))}
         </div>
@@ -400,3 +467,10 @@ export default function LandingPage() {
     </main>
   );
 }
+`;
+
+fs.writeFileSync('src/app/page.tsx', landingPage);
+console.log('Landing page written!');
+NODEEOF
+
+node /tmp/write-landing.js
