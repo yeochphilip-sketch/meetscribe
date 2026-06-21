@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
@@ -11,7 +12,6 @@ function CheckoutForm({ clientSecret }: { clientSecret: string }) {
   const elements = useElements();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,16 +41,6 @@ function CheckoutForm({ clientSecret }: { clientSecret: string }) {
     setIsLoading(false);
   };
 
-  if (success) {
-    return (
-      <div className="text-center py-8">
-        <div className="text-green-400 text-5xl mb-4">✓</div>
-        <h2 className="text-2xl font-bold mb-2">Payment Successful!</h2>
-        <p className="text-gray-400">Your test transaction worked.</p>
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -79,12 +69,33 @@ function CheckoutForm({ clientSecret }: { clientSecret: string }) {
   );
 }
 
+function SuccessMessage() {
+  return (
+    <div className="text-center py-12">
+      <div className="text-6xl mb-4">🎉</div>
+      <h2 className="text-2xl font-bold mb-2">Payment Successful!</h2>
+      <p className="text-gray-400 mb-6">Your test transaction worked perfectly.</p>
+      <div className="space-y-3">
+        <p className="text-sm text-gray-500">Check your Stripe Dashboard for the payment intent.</p>
+        <p className="text-sm text-gray-500">Check your Supabase database — the user plan should be updated to "pro".</p>
+      </div>
+    </div>
+  );
+}
+
 export default function TestCheckoutContent() {
+  const searchParams = useSearchParams();
+  const success = searchParams.get('success') === 'true';
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (success) {
+      setLoading(false);
+      return;
+    }
+
     const createTestPayment = async () => {
       try {
         const res = await fetch('/api/create-payment-intent', {
@@ -96,24 +107,18 @@ export default function TestCheckoutContent() {
           }),
         });
 
-        console.log('Test checkout response status:', res.status);
-
         if (!res.ok) {
           const errorText = await res.text();
-          console.error('API error:', errorText);
           throw new Error(`API returned ${res.status}: ${errorText}`);
         }
 
         const data = await res.json();
-        console.log('Test checkout data:', data);
-
         if (data.clientSecret) {
           setClientSecret(data.clientSecret);
         } else {
           throw new Error('No client secret returned');
         }
       } catch (err: any) {
-        console.error('Test checkout error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -121,7 +126,17 @@ export default function TestCheckoutContent() {
     };
 
     createTestPayment();
-  }, []);
+  }, [success]);
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full">
+          <SuccessMessage />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4 py-12">
@@ -147,7 +162,6 @@ export default function TestCheckoutContent() {
         ) : error ? (
           <div className="text-center py-8">
             <p className="text-red-400 mb-4">{error}</p>
-            <p className="text-sm text-gray-500">Check console for details</p>
           </div>
         ) : clientSecret ? (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
