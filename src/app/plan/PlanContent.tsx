@@ -42,7 +42,9 @@ export default function PlanContent() {
     },
   ];
 
-  const handleSelectPlan = async (planId: string) => {
+  const handleSelectPlan = async (planId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log('Selected plan:', planId);
     setLoading(planId);
 
@@ -117,7 +119,8 @@ export default function PlanContent() {
             </ul>
 
             <button
-              onClick={() => handleSelectPlan(plan.id)}
+              type="button"
+              onClick={(e) => handleSelectPlan(plan.id, e)}
               disabled={loading === plan.id}
               className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
                 plan.popular

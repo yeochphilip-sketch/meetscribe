@@ -99,8 +99,13 @@ export default function CheckoutContent() {
           return;
         }
 
-        const apiUrl = `${window.location.origin}/api/create-payment-intent`;
-        console.log('Fetching from:', apiUrl);
+        const baseUrl = window.location.origin;
+        const apiUrl = `${baseUrl}/api/create-payment-intent`;
+        
+        console.log('Base URL:', baseUrl);
+        console.log('API URL:', apiUrl);
+        console.log('Plan:', plan);
+        console.log('User ID:', user.id);
 
         const res = await fetch(apiUrl, {
           method: 'POST',
@@ -108,7 +113,8 @@ export default function CheckoutContent() {
           body: JSON.stringify({ plan, userId: user.id }),
         });
 
-        console.log('Response status:', res.status, 'URL:', res.url);
+        console.log('Response status:', res.status);
+        console.log('Response URL:', res.url);
 
         if (!res.ok) {
           const errorText = await res.text();
