@@ -9,7 +9,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 export async function POST(req: NextRequest) {
   try {
     const { plan, userId } = await req.json();
-    const supabase = createClient();
+    const supabase = await createClient();
 
     if (!userId || !plan) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
