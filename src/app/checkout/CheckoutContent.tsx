@@ -99,20 +99,21 @@ export default function CheckoutContent() {
           return;
         }
 
-        console.log('Creating payment intent for plan:', plan, 'user:', user.id);
+        const apiUrl = `${window.location.origin}/api/create-payment-intent`;
+        console.log('Fetching from:', apiUrl);
 
-        const res = await fetch('/api/create-payment-intent', {
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ plan, userId: user.id }),
         });
 
-        console.log('Response status:', res.status);
+        console.log('Response status:', res.status, 'URL:', res.url);
 
         if (!res.ok) {
           const errorText = await res.text();
           console.error('API error response:', errorText);
-          throw new Error(`API returned ${res.status}: ${errorText}`);
+          throw new Error(`API returned ${res.status}: ${errorText || 'No response body'}`);
         }
 
         const data = await res.json();
