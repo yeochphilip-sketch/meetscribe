@@ -1,154 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { createClient } from '@/utils/supabase/client';
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-
-function CheckoutForm({ plan, clientSecret }: { plan: string; clientSecret: string }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message || 'Payment failed');
-      setIsLoading(false);
-      return;
-    }
-
-    const { error: confirmError } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/dashboard?payment=success`,
-      },
-    });
-
-    if (confirmError) {
-      setError(confirmError.message || 'Payment failed');
-    }
-
-    setIsLoading(false);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-        <h3 className="text-lg font-semibold mb-4">Payment Details</h3>
-        <PaymentElement />
-      </div>
-
-      {error && (
-        <div className="bg-red-900/30 border border-red-800 text-red-400 px-4 py-3 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      <button
-        type="submit"
-        disabled={!stripe || isLoading}
-        className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-all"
-      >
-        {isLoading ? 'Processing...' : plan === 'custom' ? 'Submit Request' : 'Pay $15.00'}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => router.push('/plan')}
-        className="w-full text-gray-400 hover:text-white text-sm py-2"
-      >
-        ← Back to plans
-      </button>
-    </form>
-  );
-}
+import { Suspense } from 'react';
+import CheckoutContent from './CheckoutContent';
 
 export default function CheckoutPage() {
-  const searchParams = useSearchParams();
-  const plan = searchParams.get('plan');
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
-  useEffect(() => {
-    if (!plan || (plan !== 'pro' && plan !== 'custom')) {
-      return;
-    }
-
-    const createPaymentIntent = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const res = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, userId: user.id }),
-      });
-
-      const data = await res.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
-      }
-      setLoading(false);
-    };
-
-    createPaymentIntent();
-  }, [plan, supabase]);
-
-  if (!plan || (plan !== 'pro' && plan !== 'custom')) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <p>Invalid plan selected</p>
-      </div>
-    );
-  }
-
-  const planDetails = {
-    pro: { name: 'Pro Plan', price: '$15/month', description: 'Unlimited meetings & advanced AI insights' },
-    custom: { name: 'Custom Plan', price: 'Custom pricing', description: 'Enterprise solution - we will contact you' },
-  };
-
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Complete Your Purchase</h1>
-          <p className="text-gray-400">{planDetails[plan as keyof typeof planDetails].description}</p>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading checkout...</p>
         </div>
-
-        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-400">Plan</span>
-            <span className="font-semibold">{planDetails[plan as keyof typeof planDetails].name}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Price</span>
-            <span className="font-semibold text-xl">{planDetails[plan as keyof typeof planDetails].price}</span>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-8 text-gray-400">Loading payment form...</div>
-        ) : clientSecret ? (
-          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
-            <CheckoutForm plan={plan} clientSecret={clientSecret} />
-          </Elements>
-        ) : (
-          <div className="text-center py-8 text-red-400">Failed to load payment form</div>
-        )}
       </div>
-    </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }
