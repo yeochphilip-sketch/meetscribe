@@ -1,33 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import FeedbackWidget from "@/components/FeedbackWidget";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MeetScribe — AI-Powered Meeting Notes for Sales Teams",
-  description: "Automatically transcribe, summarize, and extract action items from your sales calls with MeetScribe.",
+  title: "MeetScribe - AI Meeting Notes for Sales Teams",
+  description: "Transform your sales meetings into actionable insights with AI-powered transcription, summaries, and CRM integration.",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="en" className="dark">
+      <body className={inter.className}>
         {children}
+        <FeedbackWidget />
       </body>
     </html>
   );
