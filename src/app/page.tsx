@@ -58,7 +58,7 @@ function Navbar() {
 
           <div className="hidden md:flex items-center gap-4">
             <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign in</Link>
-            <Link href="/login" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25">
+            <Link href="/onboarding" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25">
               <span className="relative z-10">Get started free</span>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
@@ -76,7 +76,7 @@ function Navbar() {
             {["features", "how-it-works", "pricing", "testimonials"].map((id) => (
               <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left text-gray-400 hover:text-white py-2 capitalize">{id.replace("-", " ")}</button>
             ))}
-            <Link href="/login" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white">Get started free</Link>
+            <Link href="/onboarding" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white">Get started free</Link>
           </div>
         </div>
       )}
