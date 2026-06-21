@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Mic, ArrowRight, Loader2, Building2, Briefcase, User, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +13,17 @@ export default function OnboardingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Pre-fill from landing page email input
+  useEffect(() => {
+    const emailParam = searchParams.get("email");
+    if (emailParam) {
+      // Store email for later use after OAuth
+      localStorage.setItem("onboarding_email", emailParam);
+    }
+  }, [searchParams]);
 
   const handleGoogleSignUp = async () => {
     if (!name.trim() || !company.trim() || !role.trim()) {

@@ -3,6 +3,14 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth check — prevent abuse
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const audioFile = formData.get("audio") as File;
 
@@ -10,13 +18,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No audio file provided" }, { status: 400 });
     }
 
-    // Validate file size (25MB max for Groq free tier, 100MB for dev tier)
     const maxSize = 25 * 1024 * 1024; // 25MB
     if (audioFile.size > maxSize) {
       return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 400 });
     }
 
-    // Send to Groq Whisper API for transcription
     const groqFormData = new FormData();
     groqFormData.append("file", audioFile);
     groqFormData.append("model", "whisper-large-v3-turbo");

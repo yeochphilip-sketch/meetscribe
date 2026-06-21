@@ -10,9 +10,15 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // Verify session was actually established
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+      }
+
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
-      
+
       if (isLocalEnv) {
         return NextResponse.redirect(`${origin}/dashboard`);
       } else if (forwardedHost) {
@@ -23,5 +29,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
 }

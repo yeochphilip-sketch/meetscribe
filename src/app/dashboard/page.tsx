@@ -20,10 +20,13 @@ export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Fetch user + meetings on mount
   useEffect(() => {
+    let mounted = true;
+
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted) return;
+      
       if (!user) {
         router.push("/login");
         return;
@@ -36,15 +39,15 @@ export default function DashboardPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      setMeetings(meetingsData || []);
-      setLoading(false);
+      if (mounted) {
+        setMeetings(meetingsData || []);
+        setLoading(false);
+      }
     };
 
     fetchData();
-  }, [router, supabase]);
 
-  // Save onboarding data after OAuth signup
-  useEffect(() => {
+    // Save onboarding data after OAuth signup
     const saveOnboardingData = async () => {
       const stored = localStorage.getItem("onboarding_data");
       if (!stored) return;
@@ -69,7 +72,9 @@ export default function DashboardPage() {
     };
 
     saveOnboardingData();
-  }, [supabase]);
+
+    return () => { mounted = false; };
+  }, [router]); // supabase removed — stable reference from createClient()
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -101,7 +106,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white">
-      {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
@@ -129,9 +133,7 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">Dashboard</h1>
@@ -147,7 +149,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
             <div className="flex items-center gap-3 mb-2">
@@ -184,7 +185,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Meetings List */}
         <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
           <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Recent Meetings</h2>
