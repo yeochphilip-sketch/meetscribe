@@ -45,14 +45,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Authenticated users on login/onboarding — redirect to plan page
-  // (plan page will check if they already have a plan)
-  if (pathname === '/login' || pathname === '/onboarding') {
-    return NextResponse.redirect(new URL('/plan', request.url));
-  }
-
-  // Allow all other routes for authenticated users
-  // Pages will handle their own plan checks
+  // Allow all routes for authenticated users
+  // Auth callback and pages handle their own redirects
   return response;
 }
 
