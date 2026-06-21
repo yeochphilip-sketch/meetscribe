@@ -82,12 +82,20 @@ export default function DashboardContent() {
             <h1 className="text-3xl font-bold">Dashboard</h1>
             <p className="text-gray-400 mt-1">Manage your meetings and insights</p>
           </div>
-          <Link
-            href="/new"
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-all"
-          >
-            + New Meeting
-          </Link>
+          <div className="flex gap-3">
+            <Link
+              href="/plan"
+              className="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-all border border-gray-700 text-sm"
+            >
+              Plan: {plan.charAt(0).toUpperCase() + plan.slice(1)}
+            </Link>
+            <Link
+              href="/new"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-all"
+            >
+              + New Meeting
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

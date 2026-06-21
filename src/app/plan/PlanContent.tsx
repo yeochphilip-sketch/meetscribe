@@ -6,30 +6,48 @@ import { createClient } from '@/utils/supabase/client';
 
 export default function PlanContent() {
   const [loading, setLoading] = useState<string | null>(null);
-  const [checking, setChecking] = useState(true);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    const checkExistingPlan = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('plan')
-          .eq('id', user.id)
-          .single();
+    checkUserPlan();
+  }, []);
 
-        // If user already has a paid plan, go to dashboard
-        if (profile?.plan && profile.plan !== 'free') {
-          router.push('/dashboard');
-        }
+  const checkUserPlan = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('plan, full_name')
+      .eq('id', user.id)
+      .single();
+
+    // If user has no plan set yet, they're a new user
+    if (!profile?.plan) {
+      setIsNewUser(true);
+      // Save onboarding data if exists
+      const onboardingData = localStorage.getItem('onboardingData');
+      if (onboardingData) {
+        const { name, company, role } = JSON.parse(onboardingData);
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          full_name: name,
+          company,
+          role,
+          email: user.email,
+        });
+        localStorage.removeItem('onboardingData');
       }
-      setChecking(false);
-    };
-
-    checkExistingPlan();
-  }, [router, supabase]);
+    } else {
+      setCurrentPlan(profile.plan);
+    }
+  };
 
   const plans = [
     {
@@ -67,46 +85,40 @@ export default function PlanContent() {
   const handleSelectPlan = async (planId: string) => {
     setLoading(planId);
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
     if (planId === 'free') {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('profiles').update({ plan: 'free' }).eq('id', user.id);
-        }
-        router.push('/dashboard');
-      } catch (err) {
-        console.error('Error selecting free plan:', err);
-        setLoading(null);
-      }
+      await supabase.from('profiles').update({ plan: 'free' }).eq('id', user.id);
+      router.push('/dashboard');
       return;
     }
 
-    if (planId === 'pro') {
-      router.push('/checkout?plan=pro');
-      return;
-    }
-
-    if (planId === 'custom') {
-      router.push('/checkout?plan=custom');
+    if (planId === 'pro' || planId === 'custom') {
+      router.push(`/checkout?plan=${planId}`);
       return;
     }
 
     setLoading(null);
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4 py-12">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-        <p className="text-gray-400 text-lg">Select the plan that works best for your team</p>
+        <h1 className="text-4xl font-bold mb-4">
+          {isNewUser ? 'Choose Your Plan' : 'Change Your Plan'}
+        </h1>
+        <p className="text-gray-400 text-lg">
+          {isNewUser 
+            ? 'Select the plan that works best for your team'
+            : currentPlan 
+              ? `Current plan: ${currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}`
+              : 'Select a plan to continue'
+          }
+        </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
@@ -117,11 +129,16 @@ export default function PlanContent() {
               plan.popular
                 ? 'border-blue-500 bg-gray-900/50'
                 : 'border-gray-800 bg-gray-900/30'
-            }`}
+            } ${currentPlan === plan.id ? 'ring-2 ring-green-400' : ''}`}
           >
             {plan.popular && (
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-xs font-semibold px-3 py-1 rounded-full">
                 Most Popular
+              </div>
+            )}
+            {currentPlan === plan.id && (
+              <div className="absolute -top-3 right-4 bg-green-500 text-xs font-semibold px-3 py-1 rounded-full">
+                Current
               </div>
             )}
 
@@ -148,18 +165,27 @@ export default function PlanContent() {
             <button
               type="button"
               onClick={() => handleSelectPlan(plan.id)}
-              disabled={loading === plan.id}
+              disabled={loading === plan.id || currentPlan === plan.id}
               className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
                 plan.popular
                   ? 'bg-blue-600 hover:bg-blue-500 text-white'
                   : 'bg-gray-800 hover:bg-gray-700 text-white border border-gray-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {loading === plan.id ? 'Processing...' : plan.cta}
+              {loading === plan.id ? 'Processing...' : currentPlan === plan.id ? 'Current Plan' : plan.cta}
             </button>
           </div>
         ))}
       </div>
+
+      {!isNewUser && (
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="mt-8 text-gray-400 hover:text-white text-sm"
+        >
+          ← Back to dashboard
+        </button>
+      )}
     </div>
   );
 }

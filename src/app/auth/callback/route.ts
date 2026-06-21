@@ -10,9 +10,24 @@ export async function GET(req: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Always redirect to plan page after successful auth
-      // Plan page will check if user already has a plan
-      return NextResponse.redirect(new URL('/plan', req.url));
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Check if user has a plan
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', user.id)
+          .single();
+
+        // If user already has a plan, go to dashboard
+        if (profile?.plan) {
+          return NextResponse.redirect(new URL('/dashboard', req.url));
+        }
+
+        // New user - always go to plan page first
+        return NextResponse.redirect(new URL('/plan', req.url));
+      }
     }
   }
 
