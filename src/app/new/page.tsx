@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+// In src/app/new/page.tsx
+import VoiceRecorder from "@/components/VoiceRecorder";
 
 export default function NewMeetingPage() {
   const [title, setTitle] = useState('')
@@ -115,6 +117,30 @@ export default function NewMeetingPage() {
           </div>
         </form>
       </div>
+      // ... existing code ...
+
+      <div className="space-y-6">
+        {/* Existing text input */}
+        <textarea ... />
+
+        {/* OR divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/10" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-[#0a0a0f] px-2 text-gray-500 text-sm">or</span>
+          </div>
+        </div>
+
+        {/* Voice recording */}
+        <VoiceRecorder
+          onTranscriptionComplete={(transcript) => {
+            setTranscript(transcript); // Your existing state
+          }}
+        />
+      </div>
+
     </main>
   )
 }

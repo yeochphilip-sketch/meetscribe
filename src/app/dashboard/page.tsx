@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  // Fetch user + meetings on mount
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -40,6 +41,7 @@ export default function DashboardPage() {
     };
 
     fetchData();
+  }, [router, supabase]);
 
   // Save onboarding data after OAuth signup
   useEffect(() => {
@@ -49,12 +51,9 @@ export default function DashboardPage() {
 
       try {
         const data = JSON.parse(stored);
-        const supabase = createClient();
-
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
-          // Update user metadata
           await supabase.auth.updateUser({
             data: {
               full_name: data.name,
@@ -62,8 +61,6 @@ export default function DashboardPage() {
               role: data.role,
             },
           });
-
-          // Clear localStorage after successful save
           localStorage.removeItem("onboarding_data");
         }
       } catch (err) {
@@ -72,8 +69,7 @@ export default function DashboardPage() {
     };
 
     saveOnboardingData();
-  }, []);
-  }, [router, supabase]);
+  }, [supabase]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
