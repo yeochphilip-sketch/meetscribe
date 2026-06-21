@@ -22,30 +22,43 @@ export default function PlanContent() {
       return;
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('plan, full_name')
-      .eq('id', user.id)
-      .single();
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('plan, full_name')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    // If user has no plan set yet, they're a new user
-    if (!profile?.plan) {
-      setIsNewUser(true);
-      // Save onboarding data if exists
-      const onboardingData = localStorage.getItem('onboardingData');
-      if (onboardingData) {
-        const { name, company, role } = JSON.parse(onboardingData);
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          full_name: name,
-          company,
-          role,
-          email: user.email,
-        });
-        localStorage.removeItem('onboardingData');
+      if (error) {
+        console.error('Profile query error:', error);
       }
-    } else {
-      setCurrentPlan(profile.plan);
+
+      // If no profile or no plan, user is new
+      if (!profile?.plan) {
+        setIsNewUser(true);
+        // Try to save onboarding data if exists
+        const onboardingData = localStorage.getItem('onboardingData');
+        if (onboardingData) {
+          const { name, company, role } = JSON.parse(onboardingData);
+          try {
+            await supabase.from('profiles').upsert({
+              id: user.id,
+              full_name: name,
+              company,
+              role,
+              email: user.email,
+            });
+          } catch (err) {
+            console.error('Failed to save onboarding data:', err);
+          }
+          localStorage.removeItem('onboardingData');
+        }
+      } else {
+        setCurrentPlan(profile.plan);
+      }
+    } catch (err) {
+      console.error('Failed to check profile:', err);
+      setIsNewUser(true);
     }
   };
 
@@ -92,7 +105,15 @@ export default function PlanContent() {
     }
 
     if (planId === 'free') {
-      await supabase.from('profiles').update({ plan: 'free' }).eq('id', user.id);
+      try {
+        await supabase.from('profiles').upsert({ 
+          id: user.id,
+          plan: 'free',
+          email: user.email,
+        });
+      } catch (err) {
+        console.error('Failed to save plan:', err);
+      }
       router.push('/dashboard');
       return;
     }
@@ -104,6 +125,14 @@ export default function PlanContent() {
 
     setLoading(null);
   };
+
+  if (isNewUser === false && currentPlan === null) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4 py-12">
