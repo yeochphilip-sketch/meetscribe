@@ -1,241 +1,137 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Mic, Plus, Clock, FileText, ArrowRight, LogOut, User } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
-
-interface Meeting {
-  id: string;
-  title: string;
-  created_at: string;
-  summary?: string;
-}
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
 
 export default function DashboardPage() {
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentSuccess = searchParams.get('payment') === 'success';
+  const [showToast, setShowToast] = useState(false);
+  const [meetings, setMeetings] = useState<any[]>([]);
+  const [stats, setStats] = useState({ total: 0, thisWeek: 0 });
   const supabase = createClient();
 
   useEffect(() => {
-    let mounted = true;
+    if (paymentSuccess) {
+      setShowToast(true);
+      const timer = setTimeout(() => setShowToast(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [paymentSuccess]);
 
-    const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!mounted) return;
-      
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-      setUser(user);
+  useEffect(() => {
+    fetchMeetings();
+  }, []);
 
-      const { data: meetingsData } = await supabase
-        .from("meetings")
-        .select("id, title, created_at, summary")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+  const fetchMeetings = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      if (mounted) {
-        setMeetings(meetingsData || []);
-        setLoading(false);
-      }
-    };
+    const { data } = await supabase
+      .from('meetings')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
 
-    fetchData();
-
-    // Save onboarding data after OAuth signup
-    const saveOnboardingData = async () => {
-      const stored = localStorage.getItem("onboarding_data");
-      if (!stored) return;
-
-      try {
-        const data = JSON.parse(stored);
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (user) {
-          await supabase.auth.updateUser({
-            data: {
-              full_name: data.name,
-              company: data.company,
-              role: data.role,
-            },
-          });
-          localStorage.removeItem("onboarding_data");
-        }
-      } catch (err) {
-        console.error("Failed to save onboarding data:", err);
-      }
-    };
-
-    saveOnboardingData();
-
-    return () => { mounted = false; };
-  }, [router]); // supabase removed — stable reference from createClient()
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/");
-  };
-
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
+    setMeetings(data || []);
+    setStats({
+      total: data?.length || 0,
+      thisWeek: data?.filter(m => {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return new Date(m.created_at) > weekAgo;
+      }).length || 0,
     });
   };
-
-  const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0f] text-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 lg:h-20">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Mic className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">MeetScribe</span>
-            </Link>
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <User className="w-4 h-4" />
-                <span className="hidden sm:inline">{user?.email}</span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Sign out</span>
-              </button>
-            </div>
+    <div className="min-h-screen bg-gray-950 text-white">
+      {/* Success Toast */}
+      {showToast && (
+        <div className="fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Payment successful! Welcome to your new plan.</span>
           </div>
         </div>
-      </nav>
+      )}
 
-      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-1">Dashboard</h1>
-            <p className="text-gray-400">Manage your meetings and insights</p>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-gray-400 mt-1">Manage your meetings and insights</p>
           </div>
           <Link
             href="/new"
-            className="relative group overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:shadow-xl hover:shadow-indigo-500/25 flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-all"
           >
-            <Plus className="w-4 h-4" />
-            <span className="relative z-10">New Meeting</span>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            + New Meeting
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-indigo-400" />
-              </div>
-              <span className="text-gray-400 text-sm">Total Meetings</span>
-            </div>
-            <p className="text-3xl font-bold text-white">{meetings.length}</p>
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <p className="text-gray-400 text-sm">Total Meetings</p>
+            <p className="text-3xl font-bold mt-1">{stats.total}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-purple-400" />
-              </div>
-              <span className="text-gray-400 text-sm">This Month</span>
-            </div>
-            <p className="text-3xl font-bold text-white">
-              {meetings.filter((m) => {
-                const date = new Date(m.created_at);
-                const now = new Date();
-                return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-              }).length}
-            </p>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <p className="text-gray-400 text-sm">This Week</p>
+            <p className="text-3xl font-bold mt-1">{stats.thisWeek}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                <Mic className="w-5 h-5 text-emerald-400" />
-              </div>
-              <span className="text-gray-400 text-sm">Plan</span>
-            </div>
-            <p className="text-3xl font-bold text-white">Free</p>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <p className="text-gray-400 text-sm">Plan</p>
+            <p className="text-3xl font-bold mt-1 capitalize">Pro</p>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
-          <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Recent Meetings</h2>
-            <span className="text-sm text-gray-500">{meetings.length} total</span>
+        {/* Meetings List */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-800">
+            <h2 className="text-lg font-semibold">Recent Meetings</h2>
           </div>
-
           {meetings.length === 0 ? (
-            <div className="px-6 py-16 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-gray-600" />
-              </div>
-              <h3 className="text-lg font-medium text-white mb-2">No meetings yet</h3>
-              <p className="text-gray-500 mb-6 max-w-sm mx-auto">
-                Get started by processing your first meeting transcript.
-              </p>
-              <Link
-                href="/new"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25"
-              >
-                <Plus className="w-4 h-4" />
-                Process your first meeting
+            <div className="px-6 py-12 text-center text-gray-400">
+              <p>No meetings yet. Create your first meeting to get started.</p>
+              <Link href="/new" className="text-blue-400 hover:text-blue-300 mt-2 inline-block">
+                Create a meeting →
               </Link>
             </div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-gray-800">
               {meetings.map((meeting) => (
                 <Link
                   key={meeting.id}
                   href={`/meeting/${meeting.id}`}
-                  className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.03] transition-colors group"
+                  className="block px-6 py-4 hover:bg-gray-800/50 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
-                    <Mic className="w-5 h-5 text-indigo-400" />
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold">{meeting.title || 'Untitled Meeting'}</h3>
+                      <p className="text-sm text-gray-400 mt-1">
+                        {new Date(meeting.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
+                      {meeting.status || 'Completed'}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-medium truncate">{meeting.title}</h3>
-                    <p className="text-gray-500 text-sm truncate">
-                      {meeting.summary ? meeting.summary.slice(0, 80) + "..." : "No summary yet"}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-gray-400 text-sm">{formatDate(meeting.created_at)}</p>
-                    <p className="text-gray-600 text-xs">{formatTime(meeting.created_at)}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-600 group-hover:text-white transition-colors shrink-0" />
                 </Link>
               ))}
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

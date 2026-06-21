@@ -1,33 +1,33 @@
-import { createClient } from "@/utils/supabase/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const code = searchParams.get('code');
 
   if (code) {
-    const supabase = await createClient();
+    const supabase = createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Verify session was actually established
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return NextResponse.redirect(`${origin}/login?error=auth_failed`);
-      }
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan')
+          .eq('id', user.id)
+          .single();
 
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
-
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}/dashboard`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}/dashboard`);
-      } else {
-        return NextResponse.redirect(`${origin}/dashboard`);
+        // If no plan selected yet, go to plan page
+        if (!profile?.plan) {
+          return NextResponse.redirect(new URL('/plan', req.url));
+        }
       }
+      
+      return NextResponse.redirect(new URL('/dashboard', req.url));
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth_callback_failed`);
+  return NextResponse.redirect(new URL('/login', req.url));
 }
