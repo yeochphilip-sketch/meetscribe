@@ -80,28 +80,57 @@ export default function CheckoutContent() {
   const plan = searchParams.get('plan');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
     if (!plan || (plan !== 'pro' && plan !== 'custom')) {
+      setLoading(false);
+      setError('Invalid plan selected. Please go back and select a valid plan.');
       return;
     }
 
     const createPaymentIntent = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setError('Not authenticated. Please log in.');
+          setLoading(false);
+          return;
+        }
 
-      const res = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan, userId: user.id }),
-      });
+        console.log('Creating payment intent for plan:', plan, 'user:', user.id);
 
-      const data = await res.json();
-      if (data.clientSecret) {
-        setClientSecret(data.clientSecret);
+        const res = await fetch('/api/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, userId: user.id }),
+        });
+
+        console.log('Response status:', res.status);
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('API error response:', errorText);
+          throw new Error(`API returned ${res.status}: ${errorText}`);
+        }
+
+        const data = await res.json();
+        console.log('Response data:', data);
+
+        if (data.clientSecret) {
+          setClientSecret(data.clientSecret);
+        } else if (data.error) {
+          throw new Error(data.error);
+        } else {
+          throw new Error('No client secret returned');
+        }
+      } catch (err: any) {
+        console.error('Payment intent error:', err);
+        setError(err.message || 'Failed to load payment form');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     createPaymentIntent();
@@ -110,7 +139,15 @@ export default function CheckoutContent() {
   if (!plan || (plan !== 'pro' && plan !== 'custom')) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <p>Invalid plan selected</p>
+        <div className="text-center">
+          <p className="text-red-400 mb-4">Invalid plan selected</p>
+          <button 
+            onClick={() => window.location.href = '/plan'}
+            className="text-blue-400 hover:text-blue-300"
+          >
+            ← Back to plans
+          </button>
+        </div>
       </div>
     );
   }
@@ -141,6 +178,16 @@ export default function CheckoutContent() {
 
         {loading ? (
           <div className="text-center py-8 text-gray-400">Loading payment form...</div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-red-400 mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.href = '/plan'}
+              className="text-blue-400 hover:text-blue-300"
+            >
+              ← Back to plans
+            </button>
+          </div>
         ) : clientSecret ? (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night' } }}>
             <CheckoutForm plan={plan} clientSecret={clientSecret} />
