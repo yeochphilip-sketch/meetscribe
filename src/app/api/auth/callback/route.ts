@@ -1,3 +1,4 @@
+// Vercel deployment trigger - force rebuild
 export const runtime = 'nodejs';
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -50,3 +51,4 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.redirect(new URL('/login', req.url));
 }
+// deployment trigger
