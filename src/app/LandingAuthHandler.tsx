@@ -8,6 +8,7 @@ export default function LandingAuthHandler() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const code = searchParams.get('code');
+  const next = searchParams.get('next') || '/plan';
   const supabase = createClient();
 
   useEffect(() => {
