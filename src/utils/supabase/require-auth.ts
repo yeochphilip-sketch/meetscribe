@@ -3,11 +3,17 @@ import { redirect } from 'next/navigation';
 
 export async function requireAuth() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
   
-  if (!user) {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error || !user) {
+      redirect('/login');
+    }
+    
+    return user;
+  } catch (err) {
+    console.error('requireAuth error:', err);
     redirect('/login');
   }
-  
-  return user;
 }
