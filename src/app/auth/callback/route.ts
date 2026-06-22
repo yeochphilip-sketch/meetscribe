@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         if (isLocalEnv) {
           redirectUrl = `${origin}${next}`;
         } else if (forwardedHost) {
-          redirectUrl = `https://${forwardedHost}${next}`;
+          redirectUrl = `https://meetscribe.vercel.app${next}`;
         } else {
           redirectUrl = `${origin}${next}`;
         }
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
           if (!hasPlan) {
             redirectUrl = isLocalEnv 
               ? `${origin}/plan` 
-              : (forwardedHost ? `https://${forwardedHost}/plan` : `${origin}/plan`);
+              : (forwardedHost ? `https://meetscribe.vercel.app/plan` : `${origin}/plan`);
           }
 
           return NextResponse.redirect(redirectUrl);
