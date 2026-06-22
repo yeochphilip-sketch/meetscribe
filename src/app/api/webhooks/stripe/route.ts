@@ -1,9 +1,11 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/utils/supabase/server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-05-27.dahlia',
+  apiVersion: '2026-05-27.dahlia' as any,
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -12,8 +14,7 @@ export async function POST(req: NextRequest) {
   const payload = await req.text();
   const signature = req.headers.get('stripe-signature')!;
 
-  let event: Stripe.Event;
-
+  let event;
   try {
     event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   } catch (err: any) {
@@ -21,37 +22,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const customerId = session.customer as string;
+    const subscriptionId = session.subscription as string;
+    const userId = session.client_reference_id;
 
-  switch (event.type) {
-    case 'payment_intent.succeeded': {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      const { userId, plan } = paymentIntent.metadata;
-
-      if (userId && plan) {
-        await supabase
-          .from('profiles')
-          .update({
-            plan,
-            plan_status: 'active',
-          })
-          .eq('id', userId);
-
-        await supabase
-          .from('payments')
-          .update({ status: 'succeeded' })
-          .eq('stripe_payment_intent_id', paymentIntent.id);
-      }
-      break;
-    }
-
-    case 'payment_intent.payment_failed': {
-      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    if (userId) {
+      const supabase = await createClient();
       await supabase
-        .from('payments')
-        .update({ status: 'failed' })
-        .eq('stripe_payment_intent_id', paymentIntent.id);
-      break;
+        .from('profiles')
+        .update({
+          plan: session.metadata?.plan || 'pro',
+          plan_status: 'active',
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+        })
+        .eq('id', userId);
+
+      await supabase.from('payments').insert({
+        user_id: userId,
+        plan: session.metadata?.plan || 'pro',
+        amount: session.amount_total,
+        status: 'completed',
+        stripe_payment_intent_id: session.payment_intent as string,
+      });
     }
   }
 

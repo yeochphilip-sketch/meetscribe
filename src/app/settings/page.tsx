@@ -1,7 +1,10 @@
 import { Suspense } from 'react';
+import { requireAuth } from '@/utils/supabase/require-auth';
 import SettingsContent from './SettingsContent';
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  await requireAuth();
+  
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
