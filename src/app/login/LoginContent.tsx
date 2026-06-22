@@ -33,7 +33,9 @@ export default function LoginContent() {
     setLoading(false);
   };
 
-  const handleGoogle = async () => {
+  const handleGoogle = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log('handleGoogle clicked');
     setMessage('');
 
@@ -42,19 +44,29 @@ export default function LoginContent() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: false,
         },
       });
+
+      console.log('signInWithOAuth result:', { data, error });
 
       if (error) {
         console.error('OAuth error:', error);
         setMessage(`Error: ${error.message}`);
-      } else if (!data?.url) {
+        return;
+      }
+
+      if (!data?.url) {
         console.error('No URL returned from OAuth');
         setMessage('Error: Failed to get OAuth URL');
-      } else {
-        console.log('Redirecting to OAuth URL:', data.url);
-        window.location.href = data.url;
+        return;
       }
+
+      console.log('Redirecting to OAuth URL:', data.url);
+      // Small delay to let React finish any state updates
+      setTimeout(() => {
+        window.location.assign(data.url);
+      }, 50);
     } catch (err: any) {
       console.error('Unexpected error:', err);
       setMessage(`Unexpected error: ${err.message}`);
@@ -70,6 +82,7 @@ export default function LoginContent() {
         </div>
 
         <button
+          type="button"
           onClick={handleGoogle}
           className="w-full bg-white text-gray-900 font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 hover:bg-gray-100 transition-all mb-6"
         >
@@ -114,7 +127,7 @@ export default function LoginContent() {
         </form>
 
         {message && (
-          <p className={`mt-4 text-center text-sm ${message.includes('error') || message.includes('Error') ? 'text-red-400' : 'text-green-400'}`}>
+          <p className={`mt-4 text-center text-sm ${message.toLowerCase().includes('error') ? 'text-red-400' : 'text-green-400'}`}>
             {message}
           </p>
         )}
