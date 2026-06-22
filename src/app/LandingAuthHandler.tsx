@@ -10,11 +10,13 @@ export default function LandingAuthHandler() {
   useEffect(() => {
     if (code) {
       // Auth code landed on / instead of /auth/callback.
-      // This means Supabase redirect URL is misconfigured.
-      // Redirect to the proper callback handler.
-      window.location.replace(`/auth/callback?code=${encodeURIComponent(code)}`);
+      // Preserve any next param for post-auth redirect
+      const next = searchParams.get('next') || '/dashboard';
+      window.location.replace(
+        `/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`
+      );
     }
-  }, [code]);
+  }, [code, searchParams]);
 
   return null;
 }

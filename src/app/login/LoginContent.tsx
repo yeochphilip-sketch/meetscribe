@@ -19,7 +19,7 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=${encodeURIComponent(next)}`;
       
       const { data, error: signInError } = await supabase.auth.signInWithOAuth({
         provider,
@@ -47,7 +47,7 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=${encodeURIComponent(next)}`;
       
       const { error: signInError } = await supabase.auth.signInWithOtp({
         email,
@@ -106,7 +106,6 @@ export default function LoginContent() {
         )}
 
         <div className="space-y-3">
-          {/* Google */}
           <button
             onClick={() => handleOAuthSignIn('google')}
             disabled={!!isLoading}
@@ -125,7 +124,6 @@ export default function LoginContent() {
             <span>{isLoading === 'google' ? 'Connecting...' : 'Continue with Google'}</span>
           </button>
 
-          {/* GitHub */}
           <button
             onClick={() => handleOAuthSignIn('github')}
             disabled={!!isLoading}
@@ -141,7 +139,6 @@ export default function LoginContent() {
             <span>{isLoading === 'github' ? 'Connecting...' : 'Continue with GitHub'}</span>
           </button>
 
-          {/* Divider */}
           <div className="relative py-2">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-800" />
@@ -151,7 +148,6 @@ export default function LoginContent() {
             </div>
           </div>
 
-          {/* Email */}
           {!showEmailForm ? (
             <button
               onClick={() => setShowEmailForm(true)}

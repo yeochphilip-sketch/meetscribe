@@ -16,36 +16,31 @@ export default function OnboardingContent() {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
+    // Store onboarding data for callback to pick up
+    localStorage.setItem('onboardingData', JSON.stringify({ name, company, role }));
 
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-
-      // Store onboarding data for callback to pick up
-      localStorage.setItem('onboardingData', JSON.stringify({ name, company, role }));
-
-      // Start Google OAuth
-      const redirectTo = `${window.location.origin}/auth/callback`;
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
+    // Start Google OAuth with redirect to callback
+    const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=/plan`;
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
         },
-      });
+      },
+    });
 
-      if (error) throw error;
-      if (data.url) window.location.href = data.url;
-    } catch (err: any) {
-      console.error('Onboarding error:', err);
+    if (error) {
+      console.error('Onboarding error:', error);
       setIsLoading(false);
+      return;
+    }
+    
+    if (data.url) {
+      window.location.href = data.url;
     }
   };
 

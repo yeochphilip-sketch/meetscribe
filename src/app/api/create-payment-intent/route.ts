@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { createClient } from '@/utils/supabase/server';
+import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-05-27.dahlia',
@@ -8,62 +8,62 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: NextRequest) {
   try {
-    const { plan, userId } = await req.json();
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!userId || !plan) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const amount = plan === 'pro' ? 1500 : 0;
-    const planName = plan === 'pro' ? 'Pro Plan' : 'Custom Plan';
+    const body = await req.json();
+    const { plan, userId } = body;
 
-    // Get user profile
+    if (!plan || !userId) {
+      return NextResponse.json({ error: 'Missing plan or userId' }, { status: 400 });
+    }
+
+    if (user.id !== userId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Create or retrieve Stripe customer
     const { data: profile } = await supabase
       .from('profiles')
-      .select('stripe_customer_id, email, full_name')
-      .eq('id', userId)
-      .single();
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .maybeSingle();
 
     let customerId = profile?.stripe_customer_id;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
-        email: profile?.email,
-        name: profile?.full_name,
-        metadata: { userId },
+        email: user.email,
+        metadata: { supabaseUserId: user.id },
       });
       customerId = customer.id;
 
-      await supabase
-        .from('profiles')
-        .update({ stripe_customer_id: customerId })
-        .eq('id', userId);
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        stripe_customer_id: customerId,
+      });
     }
+
+    const amount = plan === 'pro' ? 1500 : 0; // $15.00 in cents
+    const currency = 'usd';
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      currency: 'usd',
+      currency,
       customer: customerId,
+      metadata: { plan, userId: user.id },
       automatic_payment_methods: { enabled: true },
-      metadata: { userId, plan },
-      description: `MeetScribe ${planName}`,
-    });
-
-    // Record pending payment
-    await supabase.from('payments').insert({
-      user_id: userId,
-      plan,
-      amount,
-      status: 'pending',
-      stripe_payment_intent_id: paymentIntent.id,
     });
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
   } catch (error: any) {
     console.error('Payment intent error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create payment intent' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }

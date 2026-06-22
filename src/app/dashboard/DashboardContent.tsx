@@ -27,12 +27,40 @@ export default function DashboardContent() {
     }
   }, [paymentSuccess]);
 
-  // Listen to auth state changes instead of one-time fetch
+  // Force refresh session then load user data
   useEffect(() => {
+    let mounted = true;
+    
+    const init = async () => {
+      // Refresh session first to ensure we have latest auth state
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        if (mounted) {
+          setLoading(false);
+          // Don't redirect here - let the server component handle it
+        }
+        return;
+      }
+
+      if (!mounted) return;
+      
+      const currentUser = session.user;
+      setUser(currentUser);
+      setLoading(false);
+      
+      // Load plan and meetings
+      fetchPlan(currentUser.id);
+      fetchMeetings(currentUser.id);
+    };
+
+    init();
+
+    // Also listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!mounted) return;
         setUser(session?.user ?? null);
-        setLoading(false);
         if (session?.user) {
           fetchPlan(session.user.id);
           fetchMeetings(session.user.id);
@@ -40,17 +68,10 @@ export default function DashboardContent() {
       }
     );
 
-    // Also check current session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        fetchPlan(session.user.id);
-        fetchMeetings(session.user.id);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   useEffect(() => {
@@ -122,7 +143,6 @@ export default function DashboardContent() {
   };
 
   const getAvatarUrl = () => {
-    // Google: picture, GitHub: avatar_url
     return user?.user_metadata?.picture || user?.user_metadata?.avatar_url || null;
   };
 
@@ -138,7 +158,6 @@ export default function DashboardContent() {
   };
 
   const getDisplayName = () => {
-    // Google: full_name or name, GitHub: full_name or user_name
     return (
       user?.user_metadata?.full_name ||
       user?.user_metadata?.name ||
@@ -183,7 +202,6 @@ export default function DashboardContent() {
       )}
 
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -204,7 +222,6 @@ export default function DashboardContent() {
               + New Meeting
             </Link>
 
-            {/* Avatar Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -217,7 +234,6 @@ export default function DashboardContent() {
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
-                      // If image fails to load, hide it and show initials
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
@@ -265,7 +281,6 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
             <p className="text-gray-400 text-sm">Total Meetings</p>
@@ -281,7 +296,6 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        {/* Meetings List */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-800">
             <h2 className="text-lg font-semibold">Recent Meetings</h2>
