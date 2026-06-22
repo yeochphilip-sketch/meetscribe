@@ -9,10 +9,10 @@ export default function LandingAuthHandler() {
 
   useEffect(() => {
     if (code) {
-      // If a code lands on /, it means the Supabase redirect URL is misconfigured.
+      // Auth code landed on / instead of /auth/callback.
+      // This means Supabase redirect URL is misconfigured.
       // Redirect to the proper callback handler.
-      console.warn('[LandingAuthHandler] Auth code detected on /. Redirecting to /auth/callback');
-      window.location.href = `/auth/callback?code=${encodeURIComponent(code)}`;
+      window.location.replace(`/auth/callback?code=${encodeURIComponent(code)}`);
     }
   }, [code]);
 

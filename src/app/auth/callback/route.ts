@@ -12,19 +12,6 @@ export async function GET(request: NextRequest) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (!error) {
-        const forwardedHost = request.headers.get('x-forwarded-host');
-        const isLocalEnv = process.env.NODE_ENV === 'development';
-        
-        let redirectUrl: string;
-        
-        if (isLocalEnv) {
-          redirectUrl = `${origin}${next}`;
-        } else if (forwardedHost) {
-          redirectUrl = `https://meetscribe.vercel.app${next}`;
-        } else {
-          redirectUrl = `${origin}${next}`;
-        }
-
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
@@ -46,13 +33,8 @@ export async function GET(request: NextRequest) {
             hasPlan = false;
           }
 
-          if (!hasPlan) {
-            redirectUrl = isLocalEnv 
-              ? `${origin}/plan` 
-              : (forwardedHost ? `https://meetscribe.vercel.app/plan` : `${origin}/plan`);
-          }
-
-          return NextResponse.redirect(redirectUrl);
+          const redirectPath = hasPlan ? next : '/plan';
+          return NextResponse.redirect(new URL(redirectPath, request.url));
         }
       } else {
         console.error('Auth callback exchange error:', error);
@@ -63,5 +45,5 @@ export async function GET(request: NextRequest) {
   }
 
   // return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`);
+  return NextResponse.redirect(new URL('/auth/auth-code-error', request.url));
 }

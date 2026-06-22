@@ -14,6 +14,7 @@ export default function DashboardContent() {
   const [stats, setStats] = useState({ total: 0, thisWeek: 0 });
   const [plan, setPlan] = useState('free');
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -26,11 +27,31 @@ export default function DashboardContent() {
     }
   }, [paymentSuccess]);
 
+  // Listen to auth state changes instead of one-time fetch
   useEffect(() => {
-    fetchUser();
-    fetchMeetings();
-    fetchPlan();
-  }, []);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+        if (session?.user) {
+          fetchPlan(session.user.id);
+          fetchMeetings(session.user.id);
+        }
+      }
+    );
+
+    // Also check current session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+      if (session?.user) {
+        fetchPlan(session.user.id);
+        fetchMeetings(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -42,20 +63,12 @@ export default function DashboardContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const fetchUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-  };
-
-  const fetchPlan = async () => {
+  const fetchPlan = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('plan')
-        .eq('id', user.id)
+        .eq('id', userId)
         .maybeSingle();
 
       if (error) {
@@ -71,15 +84,12 @@ export default function DashboardContent() {
     }
   };
 
-  const fetchMeetings = async () => {
+  const fetchMeetings = async (userId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('meetings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -112,12 +122,14 @@ export default function DashboardContent() {
   };
 
   const getAvatarUrl = () => {
-    return user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+    // Google: picture, GitHub: avatar_url
+    return user?.user_metadata?.picture || user?.user_metadata?.avatar_url || null;
   };
 
   const getInitials = () => {
-    const fullName = user?.user_metadata?.full_name || user?.email || '?';
-    return fullName
+    const name = getDisplayName();
+    if (!name || name === 'User') return '?';
+    return name
       .split(' ')
       .map((n: string) => n[0])
       .join('')
@@ -126,8 +138,36 @@ export default function DashboardContent() {
   };
 
   const getDisplayName = () => {
-    return user?.user_metadata?.full_name || user?.email || 'User';
+    // Google: full_name or name, GitHub: full_name or user_name
+    return (
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.user_metadata?.user_name ||
+      user?.email ||
+      'User'
+    );
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-400 mb-4">Please sign in to view your dashboard</p>
+          <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-3 font-medium">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -176,6 +216,10 @@ export default function DashboardContent() {
                     alt="Profile"
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      // If image fails to load, hide it and show initials
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full bg-blue-600 flex items-center justify-center text-sm font-bold">
@@ -246,7 +290,7 @@ export default function DashboardContent() {
             <div className="px-6 py-12 text-center text-gray-400">
               <p>No meetings yet. Create your first meeting to get started.</p>
               <Link href="/new" className="text-blue-400 hover:text-blue-300 mt-2 inline-block">
-                Create a meeting →
+                Create a meeting &rarr;
               </Link>
             </div>
           ) : (
@@ -259,18 +303,13 @@ export default function DashboardContent() {
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold">{meeting.title || 'Untitled Meeting'}</h3>
+                      <h3 className="font-medium">{meeting.title}</h3>
                       <p className="text-sm text-gray-400 mt-1">
-                        {new Date(meeting.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {new Date(meeting.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
-                      {meeting.status || 'Completed'}
+                      {meeting.status}
                     </span>
                   </div>
                 </Link>
