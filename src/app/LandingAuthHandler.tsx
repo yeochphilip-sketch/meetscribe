@@ -1,41 +1,38 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function LandingAuthHandler() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const code = searchParams.get('code');
-  const next = searchParams.get('next') || '/plan';
-  const supabase = createClient();
+  const [status, setStatus] = useState<'idle' | 'redirecting' | 'error'>('idle');
 
   useEffect(() => {
-    if (!code) return;
+    if (!code || status !== 'idle') return;
 
-    const exchangeCode = async () => {
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) {
-        console.error('Code exchange error on landing:', error);
-        return;
-      }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('plan')
-            .eq('id', user.id)
-            .maybeSingle();
-          router.push(profile?.plan ? '/dashboard' : '/plan');
-        } catch {
-          router.push('/plan');
-        }
-      }
-    };
-    exchangeCode();
-  }, [code, router, supabase]);
+    console.log('[LandingAuthHandler] Auth code detected on /:', code);
+    setStatus('redirecting');
+
+    // Forward the code to the proper server-side callback route
+    // This ensures the code is exchanged with all PKCE cookies intact
+    const callbackUrl = `/auth/callback?code=${encodeURIComponent(code)}`;
+    console.log('[LandingAuthHandler] Redirecting to:', callbackUrl);
+
+    window.location.replace(callbackUrl);
+  }, [code, status]);
+
+  // Show a brief loading state while redirecting
+  if (status === 'redirecting') {
+    return (
+      <div className="fixed inset-0 bg-[#0a0a0f]/90 flex items-center justify-center z-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400 text-sm">Completing sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   return null;
 }

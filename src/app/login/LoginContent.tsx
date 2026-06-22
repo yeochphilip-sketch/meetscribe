@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
 export default function LoginContent() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +20,7 @@ export default function LoginContent() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${APP_URL}/auth/callback`,
       },
     });
 
@@ -40,7 +42,7 @@ export default function LoginContent() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${APP_URL}/auth/callback`,
         },
       });
 
