@@ -20,16 +20,26 @@ export default function OnboardingContent() {
     // Store onboarding data in localStorage for after OAuth
     localStorage.setItem('onboardingData', JSON.stringify({ name, company, role }));
 
-    // Redirect to Google OAuth
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
-    if (error) {
-      alert(error.message);
+      if (error) {
+        alert(error.message);
+        setLoading(false);
+      } else if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Failed to get OAuth URL. Please try again.');
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error('OAuth error:', err);
+      alert(err.message || 'An unexpected error occurred. Please try again.');
       setLoading(false);
     }
   };

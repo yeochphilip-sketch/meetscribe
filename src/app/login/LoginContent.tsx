@@ -36,17 +36,14 @@ export default function LoginContent() {
   const handleGoogle = async () => {
     console.log('handleGoogle clicked');
     setMessage('');
-    
+
     try {
-      console.log('Calling signInWithOAuth...');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
-
-      console.log('signInWithOAuth result:', { data, error });
 
       if (error) {
         console.error('OAuth error:', error);
@@ -55,9 +52,8 @@ export default function LoginContent() {
         console.error('No URL returned from OAuth');
         setMessage('Error: Failed to get OAuth URL');
       } else {
-        console.log('OAuth URL:', data.url);
-        // The OAuth should redirect automatically, but if not, we can manually redirect
-        // window.location.href = data.url;
+        console.log('Redirecting to OAuth URL:', data.url);
+        window.location.href = data.url;
       }
     } catch (err: any) {
       console.error('Unexpected error:', err);
