@@ -42,7 +42,6 @@ export default function LandingAuthHandler() {
 
         console.log('[LandingAuthHandler] User:', user.id);
 
-        // Check if user has a profile with a plan
         let hasPlan = false;
         try {
           const { data: profile, error: profileError } = await supabase
@@ -64,7 +63,6 @@ export default function LandingAuthHandler() {
 
         setStatus('redirecting');
 
-        // Save onboarding data if exists
         const onboardingData = localStorage.getItem('onboardingData');
         if (onboardingData && !hasPlan) {
           try {
@@ -82,12 +80,7 @@ export default function LandingAuthHandler() {
           }
         }
 
-        // Redirect based on plan status
-        if (hasPlan) {
-          router.push('/dashboard');
-        } else {
-          router.push('/plan');
-        }
+        router.push(hasPlan ? '/dashboard' : '/plan');
       } catch (err: any) {
         console.error('[LandingAuthHandler] Unexpected error:', err);
         setErrorMsg(err.message || 'An unexpected error occurred');

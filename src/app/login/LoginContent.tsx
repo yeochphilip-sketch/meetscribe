@@ -20,7 +20,7 @@ export default function LoginContent() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${APP_URL}/auth/callback`,
+        emailRedirectTo: `${APP_URL}/api/auth/callback`,
       },
     });
 
@@ -42,7 +42,7 @@ export default function LoginContent() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${APP_URL}/auth/callback`,
+          redirectTo: `${APP_URL}/api/auth/callback`,
         },
       });
 
