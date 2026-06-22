@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
 export default function LoginContent() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -36,7 +34,6 @@ export default function LoginContent() {
   const handleGoogle = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('handleGoogle clicked');
     setMessage('');
 
     try {
@@ -44,31 +41,20 @@ export default function LoginContent() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: false,
         },
       });
 
-      console.log('signInWithOAuth result:', { data, error });
-
       if (error) {
-        console.error('OAuth error:', error);
         setMessage(`Error: ${error.message}`);
         return;
       }
 
-      if (!data?.url) {
-        console.error('No URL returned from OAuth');
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
         setMessage('Error: Failed to get OAuth URL');
-        return;
       }
-
-      console.log('Redirecting to OAuth URL:', data.url);
-      // Small delay to let React finish any state updates
-      setTimeout(() => {
-        window.location.assign(data.url);
-      }, 50);
     } catch (err: any) {
-      console.error('Unexpected error:', err);
       setMessage(`Unexpected error: ${err.message}`);
     }
   };

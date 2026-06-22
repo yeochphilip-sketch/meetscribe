@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 
 export default function OnboardingContent() {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -18,14 +16,11 @@ export default function OnboardingContent() {
     e.preventDefault();
     e.stopPropagation();
 
-    // Manual form validation
     if (!formRef.current?.reportValidity()) {
       return;
     }
 
     setLoading(true);
-
-    // Store onboarding data in localStorage for after OAuth
     localStorage.setItem('onboardingData', JSON.stringify({ name, company, role }));
 
     try {
@@ -33,11 +28,8 @@ export default function OnboardingContent() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: false,
         },
       });
-
-      console.log('signInWithOAuth result:', { data, error });
 
       if (error) {
         alert(error.message);
@@ -46,16 +38,12 @@ export default function OnboardingContent() {
       }
 
       if (data?.url) {
-        console.log('Redirecting to OAuth URL:', data.url);
-        setTimeout(() => {
-          window.location.assign(data.url);
-        }, 50);
+        window.location.href = data.url;
       } else {
         alert('Failed to get OAuth URL. Please try again.');
         setLoading(false);
       }
     } catch (err: any) {
-      console.error('OAuth error:', err);
       alert(err.message || 'An unexpected error occurred. Please try again.');
       setLoading(false);
     }

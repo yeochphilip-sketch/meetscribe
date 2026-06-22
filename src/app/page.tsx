@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import {
@@ -6,6 +6,44 @@ import {
   ArrowRight, Check, Menu, X,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+
+function LandingAuthHandler() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const code = searchParams.get("code");
+  const supabase = createClient();
+
+  useEffect(() => {
+    if (!code) return;
+
+    // Auth code landed on / instead of /auth/callback — handle it
+    const exchangeCode = async () => {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) {
+        console.error("Code exchange error on landing:", error);
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("plan")
+            .eq("id", user.id)
+            .maybeSingle();
+          router.push(profile?.plan ? "/dashboard" : "/plan");
+        } catch {
+          router.push("/plan");
+        }
+      }
+    };
+    exchangeCode();
+  }, [code, router, supabase]);
+
+  return null;
+}
 
 function GradientBackground() {
   return (
@@ -336,6 +374,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden relative">
       <GradientBackground />
       <div className="relative z-10">
+        <LandingAuthHandler />
         <Navbar />
         <HeroSection />
         <FeaturesSection />

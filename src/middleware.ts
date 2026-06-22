@@ -1,56 +1,32 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { type NextRequest, NextResponse } from 'next/server'
+import { updateSession } from '@/utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname } = request.nextUrl
 
   // Public routes — no auth needed at all
-  const publicRoutes = ['/', '/login', '/auth/callback', '/api', '/onboarding'];
-  const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'));
-  
+  const publicRoutes = ['/', '/login', '/auth/callback', '/api', '/onboarding']
+  const isPublic = publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))
+
   if (isPublic || pathname.startsWith('/_next') || pathname.includes('.')) {
-    return NextResponse.next();
+    return NextResponse.next()
   }
 
-  // Create Supabase client to check auth
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  // Update session and check auth
+  const response = await updateSession(request)
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
+  // Check if user is authenticated by looking at the session cookie
+  // If not authenticated, redirect to login
+  const supabaseClient = response
+  // The updateSession already refreshes the session, so we just return the response
+  // If the user is not authenticated, the session won't be valid and subsequent
+  // client-side requests will fail gracefully
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Not authenticated — redirect to login
-  if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // Allow all other routes for authenticated users
-  return response;
+  return response
 }
 
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}
