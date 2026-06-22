@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import { requireAuth } from '@/utils/supabase/require-auth';
-import NewMeetingContent from './NewMeetingContent';
+import NewContent from './NewContent';
 
 export default async function NewMeetingPage() {
   await requireAuth();
@@ -11,7 +11,7 @@ export default async function NewMeetingPage() {
         <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     }>
-      <NewMeetingContent />
+      <NewContent />
     </Suspense>
   );
 }
