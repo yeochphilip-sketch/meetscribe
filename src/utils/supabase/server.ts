@@ -20,8 +20,12 @@ export async function createClient() {
           } catch (error) {
             // The `set` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing sessions.
+            console.error('Cookie set error:', error)
           }
         },
+      },
+      auth: {
+        flowType: 'pkce',
       },
     }
   )
