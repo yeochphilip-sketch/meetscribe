@@ -2,41 +2,51 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
+
+function generatePKCE() {
+  const array = new Uint8Array(64);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b % 66]).join('');
+}
 
 export default function LoginContent() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '/dashboard';
-  const supabase = createClient();
 
   const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     setIsLoading(provider);
     setError(null);
 
     try {
-      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=${encodeURIComponent(next)}`;
+      const codeVerifier = generatePKCE();
       
-      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+      // Encode verifier + next path into OAuth state parameter
+      const stateData = btoa(JSON.stringify({ 
+        v: codeVerifier, 
+        n: next,
+        ts: Date.now()
+      }));
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback`;
+      
+      const params = new URLSearchParams({
         provider,
-        options: {
-          redirectTo,
-          queryParams: provider === 'google' ? {
-            access_type: 'offline',
-            prompt: 'consent',
-          } : {},
-        },
+        redirect_to: redirectTo,
       });
-
-      if (signInError) {
-        throw signInError;
+      
+      if (provider === 'google') {
+        params.append('scopes', 'email profile openid');
       }
-
-      if (data.url) {
-        // Use window.location.href for full page navigation to ensure cookies are set properly
-        window.location.href = data.url;
-      }
+      
+      params.append('state', stateData);
+      
+      const oauthUrl = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
+      
+      window.location.href = oauthUrl;
+      
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
       setError(err.message || `Failed to sign in with ${provider}. Please try again.`);

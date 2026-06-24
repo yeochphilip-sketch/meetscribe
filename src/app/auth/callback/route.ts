@@ -1,94 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const state = searchParams.get('state');
+  const nextFromUrl = searchParams.get('next') ?? '/dashboard';
 
   console.log('[AUTH CALLBACK] Code present:', !!code);
-  console.log('[AUTH CALLBACK] Next:', next);
+  console.log('[AUTH CALLBACK] State present:', !!state);
 
   if (!code) {
     return NextResponse.redirect('https://meetscribe-v2.vercel.app/auth/auth-code-error?error=no_code');
   }
 
-  const cookieStore = await cookies();
-  
-  // Log all cookies for debugging
-  const allCookies = cookieStore.getAll();
-  console.log('[AUTH CALLBACK] All cookies:', allCookies.map(c => c.name));
-  
-  // Find PKCE code verifier cookie
-  // Supabase names it: sb-<project-ref>-auth-token-code-verifier
-  const pkceCookie = allCookies.find(c => c.name.includes('code-verifier'));
-  console.log('[AUTH CALLBACK] PKCE cookie found:', !!pkceCookie);
+  // Recover PKCE verifier from state parameter
+  let codeVerifier: string | null = null;
+  let nextPath = nextFromUrl;
+
+  if (state) {
+    try {
+      const stateData = JSON.parse(atob(state));
+      codeVerifier = stateData.v || null;
+      nextPath = stateData.n || nextFromUrl;
+      console.log('[AUTH CALLBACK] Recovered verifier from state, length:', codeVerifier?.length);
+    } catch (e) {
+      console.error('[AUTH CALLBACK] Failed to decode state:', e);
+    }
+  }
+
+  if (!codeVerifier) {
+    console.error('[AUTH CALLBACK] No PKCE verifier found in state');
+    return NextResponse.redirect(
+      'https://meetscribe-v2.vercel.app/auth/auth-code-error?error=pkce_not_found'
+    );
+  }
 
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          },
-        },
-      }
-    );
+    // Manual token exchange with recovered verifier
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+n    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-    console.log('[AUTH CALLBACK] Attempting exchangeCodeForSession...');
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const tokenResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+      },
+      body: JSON.stringify({
+        auth_code: code,
+        code_verifier: codeVerifier,
+      }),
+    });
 
-    if (error) {
-      console.error('[AUTH CALLBACK] Exchange FAILED:', error.message);
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('[AUTH CALLBACK] Token exchange failed:', tokenResponse.status, errorText);
       return NextResponse.redirect(
-        `https://meetscribe-v2.vercel.app/auth/auth-code-error?error=${encodeURIComponent(error.message)}`
+        `https://meetscribe-v2.vercel.app/auth/auth-code-error?error=token_exchange&details=${encodeURIComponent(errorText)}`
       );
     }
 
-    console.log('[AUTH CALLBACK] Exchange SUCCESS');
-    console.log('[AUTH CALLBACK] Session user:', data.session?.user?.id);
+    const tokenData = await tokenResponse.json();
+    console.log('[AUTH CALLBACK] Token exchange success, user:', tokenData.user?.id);
 
-    if (!data.session?.user) {
-      return NextResponse.redirect('https://meetscribe-v2.vercel.app/auth/auth-code-error?error=no_user');
-    }
-
-    const user = data.session.user;
-
-    // Check plan
-    let hasPlan = false;
-    try {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('plan')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('[AUTH CALLBACK] Profile query error:', profileError.message);
-      } else {
-        hasPlan = !!profile?.plan;
-        console.log('[AUTH CALLBACK] Has plan:', hasPlan);
-      }
-    } catch (err) {
-      console.error('[AUTH CALLBACK] Profile check exception:', err);
-    }
-
-    const redirectPath = hasPlan ? next : '/plan';
-    const finalUrl = `https://meetscribe-v2.vercel.app${redirectPath}`;
+    // Set session cookies
+    const response = NextResponse.redirect(`https://meetscribe-v2.vercel.app${nextPath}`);
     
-    console.log('[AUTH CALLBACK] Redirecting to:', finalUrl);
-    return NextResponse.redirect(finalUrl);
+    const sessionData = {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_at: Math.floor(Date.now() / 1000) + tokenData.expires_in,
+      expires_in: tokenData.expires_in,
+      token_type: tokenData.token_type,
+      user: tokenData.user,
+    };
+
+    const projectRef = supabaseUrl.split('//')[1].split('.')[0];
+    
+    response.cookies.set(`sb-${projectRef}-auth-token`, JSON.stringify(sessionData), {
+      path: '/',
+      maxAge: tokenData.expires_in,
+      sameSite: 'lax',
+      secure: true,
+    });
+
+    response.cookies.set('sb-access-token', tokenData.access_token, {
+      path: '/',
+      maxAge: tokenData.expires_in,
+      sameSite: 'lax',
+      secure: true,
+    });
+
+    response.cookies.set('sb-refresh-token', tokenData.refresh_token, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 30,
+      sameSite: 'lax',
+      secure: true,
+    });
+
+    return response;
 
   } catch (err: any) {
-    console.error('[AUTH CALLBACK] UNEXPECTED ERROR:', err.message);
+    console.error('[AUTH CALLBACK] Unexpected error:', err.message);
     return NextResponse.redirect(
       `https://meetscribe-v2.vercel.app/auth/auth-code-error?error=unexpected&details=${encodeURIComponent(err.message)}`
     );
