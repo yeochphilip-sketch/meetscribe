@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   try {
     // Manual token exchange with recovered verifier
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-n    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
     const tokenResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
