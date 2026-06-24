@@ -2,94 +2,64 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
 
 export default function LoginContent() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
-  const [showEmailForm, setShowEmailForm] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '/dashboard';
-  const supabase = createClient();
+
+  const generatePKCE = async () => {
+    const verifier = Array.from(crypto.getRandomValues(new Uint8Array(64)))
+      .map(b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b % 66])
+      .join('');
+    
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    
+    return { verifier, challenge };
+  };
 
   const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     setIsLoading(provider);
     setError(null);
 
     try {
-      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=${encodeURIComponent(next)}`;
+      const { verifier, challenge } = await generatePKCE();
       
-      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
+      // Store verifier in localStorage
+      localStorage.setItem('meetscribe-pkce-verifier', verifier);
+      localStorage.setItem('meetscribe-pkce-next', next);
+      
+      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback`;
+      
+      // Build the Supabase OAuth URL manually with our PKCE challenge
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const params = new URLSearchParams({
         provider,
-        options: {
-          redirectTo,
-          queryParams: provider === 'google' ? {
-            access_type: 'offline',
-            prompt: 'consent',
-          } : {},
-        },
+        redirect_to: redirectTo,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
       });
-
-      if (signInError) throw signInError;
-      if (data.url) window.location.href = data.url;
+      
+      if (provider === 'google') {
+        params.append('scopes', 'email profile');
+      }
+      
+      const oauthUrl = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
+      
+      window.location.href = oauthUrl;
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
       setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
       setIsLoading(null);
     }
   };
-
-  const handleEmailSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading('email');
-    setError(null);
-
-    try {
-      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=${encodeURIComponent(next)}`;
-      
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
-
-      if (signInError) throw signInError;
-      
-      setEmailSent(true);
-    } catch (err: any) {
-      console.error('Email sign in error:', err);
-      setError(err.message || 'Failed to send magic link. Please try again.');
-    } finally {
-      setIsLoading(null);
-    }
-  };
-
-  if (emailSent) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto">
-            <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-white">Check Your Email</h1>
-          <p className="text-gray-400">
-            We sent a magic link to <span className="text-white font-medium">{email}</span>. Click it to sign in.
-          </p>
-          <button
-            onClick={() => { setEmailSent(false); setEmail(''); }}
-            className="text-blue-400 hover:text-blue-300 text-sm"
-          >
-            Use a different email
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
@@ -138,64 +108,7 @@ export default function LoginContent() {
             )}
             <span>{isLoading === 'github' ? 'Connecting...' : 'Continue with GitHub'}</span>
           </button>
-
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-800" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-gray-950 px-4 text-sm text-gray-500">or</span>
-            </div>
-          </div>
-
-          {!showEmailForm ? (
-            <button
-              onClick={() => setShowEmailForm(true)}
-              className="w-full flex items-center justify-center gap-3 bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 transition-colors"
-            >
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span>Continue with Email</span>
-            </button>
-          ) : (
-            <form onSubmit={handleEmailSignIn} className="space-y-3">
-              <input
-                type="email"
-                required
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                type="submit"
-                disabled={!!isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading === 'email' ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" />
-                ) : (
-                  'Send Magic Link'
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowEmailForm(false)}
-                className="w-full text-gray-400 hover:text-gray-300 text-sm py-2"
-              >
-                Back to other options
-              </button>
-            </form>
-          )}
         </div>
-
-        <p className="text-center text-gray-500 text-sm">
-          By signing in, you agree to our{' '}
-          <a href="#" className="text-gray-400 hover:text-white">Terms</a>
-          {' '}and{' '}
-          <a href="#" className="text-gray-400 hover:text-white">Privacy Policy</a>
-        </p>
       </div>
     </div>
   );
