@@ -9,7 +9,7 @@ export default function LandingAuthHandler() {
 
   useEffect(() => {
     if (code) {
-      // Auth code landed on / instead of /auth/callback.
+      // Auth code landed on / instead of /auth/callback
       // Preserve any next param for post-auth redirect
       const next = searchParams.get('next') || '/dashboard';
       window.location.replace(
