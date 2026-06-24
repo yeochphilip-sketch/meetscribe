@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  // CRITICAL: Don't touch auth callback at all — let cookies flow through natively
+  // CRITICAL: Pass auth callback through completely untouched.
+  // Do NOT create a new response object — reuse the incoming request cookies.
   if (
     request.nextUrl.pathname === "/auth/callback" ||
     request.nextUrl.pathname.startsWith("/auth/callback")
@@ -12,12 +13,13 @@ export async function updateSession(request: NextRequest) {
         headers: request.headers,
       },
     });
-    // Explicitly pass all cookies through untouched
+    // Edge/Safari can drop cookies if we don't explicitly re-set them.
+    // Re-apply every cookie with its original options.
     request.cookies.getAll().forEach((cookie) => {
       response.cookies.set(cookie.name, cookie.value, {
         path: "/",
         sameSite: "lax",
-        secure: true,
+        secure: process.env.NODE_ENV === "production",
       });
     });
     return response;
