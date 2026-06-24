@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
 function LoginForm() {
@@ -22,17 +22,24 @@ function LoginForm() {
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          queryParams:
+            provider === "google"
+              ? {
+                  access_type: "offline",
+                  prompt: "consent",
+                }
+              : undefined,
         },
       });
 
       if (oauthError) {
         throw oauthError;
       }
-
-      // signInWithOAuth redirects the browser, so we don't need to do anything else
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
-      setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
+      setError(
+        err.message || `Failed to sign in with ${provider}. Please try again.`
+      );
       setIsLoading(null);
     }
   };
@@ -70,13 +77,26 @@ function LoginForm() {
         <div className="max-w-sm w-full text-center">
           <div className="mb-6">
             <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Check your email</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Check your email
+            </h2>
             <p className="text-gray-400">
-              We sent a magic link to <span className="text-white">{email}</span>. Click it to sign in.
+              We sent a magic link to{" "}
+              <span className="text-white">{email}</span>. Click it to sign in.
             </p>
           </div>
           <button
@@ -94,8 +114,12 @@ function LoginForm() {
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome to MeetScribe</h2>
-          <p className="text-gray-400">AI-powered meeting notes for sales teams</p>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            Welcome to MeetScribe
+          </h2>
+          <p className="text-gray-400">
+            AI-powered meeting notes for sales teams
+          </p>
         </div>
 
         {error && (
@@ -191,7 +215,13 @@ function LoginForm() {
 
 export default function LoginContent() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><p className="text-white">Loading...</p></div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <p className="text-white">Loading...</p>
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
