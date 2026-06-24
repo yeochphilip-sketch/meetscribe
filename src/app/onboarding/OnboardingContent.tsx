@@ -1,75 +1,131 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-
-function generatePKCE() {
-  const array = new Uint8Array(64);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b % 66]).join('');
-}
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 export default function OnboardingContent() {
-  const [name, setName] = useState('');
-  const [company, setCompany] = useState('');
-  const [role, setRole] = useState('');
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? "/dashboard";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setMessage("");
 
-    localStorage.setItem('meetscribe-onboarding', JSON.stringify({ name, company, role }));
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    const codeVerifier = generatePKCE();
-    
-    const stateData = btoa(JSON.stringify({ 
-      v: codeVerifier, 
-      n: '/plan',
-      ts: Date.now()
-    }));
-    
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback`;
-    
-    const params = new URLSearchParams({
-      provider: 'google',
-      redirect_to: redirectTo,
-      scopes: 'email profile openid',
-      state: stateData,
-    });
+      if (!user) {
+        setMessage("You must be signed in to complete onboarding.");
+        setIsLoading(false);
+        return;
+      }
 
-    window.location.href = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
+      const { error } = await supabase.from("profiles").upsert({
+        id: user.id,
+        full_name: name,
+        company: company,
+        role: role,
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        console.error("Onboarding error:", error);
+        setMessage("Failed to save profile. Please try again.");
+        setIsLoading(false);
+        return;
+      }
+
+      router.push(next);
+    } catch (err: any) {
+      console.error("Onboarding unexpected error:", err);
+      setMessage("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">Get Started</h1>
-          <p className="text-gray-400">Tell us a bit about yourself</p>
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Welcome to MeetScribe</h1>
+          <p className="text-gray-400">Tell us a bit about yourself to get started</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
-            <input id="name" type="text" required value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Doe" />
-n          </div>
-          <div>
-            <label htmlFor="company" className="block text-sm font-medium text-gray-300 mb-2">Company</label>
-            <input id="company" type="text" required value={company} onChange={(e) => setCompany(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Acme Inc" />
+        {message && (
+          <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            {message}
           </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-300 mb-2">Role</label>
-            <input id="role" type="text" required value={role} onChange={(e) => setRole(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Sales Manager" />
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Full name
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full pl-4 pr-5 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+              placeholder="John Doe"
+            />
           </div>
-          <button type="submit" disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-3 font-medium transition-colors disabled:opacity-50">
-            {isLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto" /> : 'Continue with Google'}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Company name
+            </label>
+            <input
+              type="text"
+              required
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              className="w-full pl-4 pr-5 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+              placeholder="Acme Inc"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Your role
+            </label>
+            <input
+              type="text"
+              required
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full pl-4 pr-5 py-3.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all"
+              placeholder="Sales Manager"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? "Saving..." : "Continue"}
           </button>
         </form>
+
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Already have an account?{" "}
+          <a href="/login" className="text-indigo-400 hover:text-indigo-300">
+            Sign in
+          </a>
+        </p>
       </div>
     </div>
   );
