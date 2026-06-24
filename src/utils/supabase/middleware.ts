@@ -28,20 +28,13 @@ export async function updateSession(request: NextRequest) {
           );
         },
       },
-      auth: {
-        flowType: 'pkce',
-      },
     }
   );
 
-  // Refresh session - this triggers cookie updates
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (error) {
-    console.error('Middleware auth error:', error.message);
-  }
-
-  // Protect auth-required routes
   const authRequiredPaths = ['/dashboard', '/plan', '/settings', '/checkout', '/new', '/meeting'];
   const isAuthRequired = authRequiredPaths.some(path => request.nextUrl.pathname.startsWith(path));
   
@@ -52,7 +45,6 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from login/onboarding
   const authPages = ['/login', '/onboarding'];
   const isAuthPage = authPages.some(path => request.nextUrl.pathname === path);
   
