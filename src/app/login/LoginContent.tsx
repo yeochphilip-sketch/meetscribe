@@ -35,6 +35,7 @@ function LoginForm() {
       if (oauthError) {
         throw oauthError;
       }
+      // signInWithOAuth redirects the browser; no further action needed
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
       setError(
