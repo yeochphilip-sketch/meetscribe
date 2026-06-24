@@ -4,11 +4,15 @@ import { createClient } from "@/utils/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  // Capture next BEFORE exchangeCodeForSession, as the URL might be consumed
   const next = searchParams.get("next") ?? "/dashboard";
 
+  console.log("[AUTH CALLBACK] Full URL:", request.url);
   console.log("[AUTH CALLBACK] Code present:", !!code);
   console.log("[AUTH CALLBACK] Next path:", next);
+  console.log(
+    "[AUTH CALLBACK] Cookies received:",
+    request.cookies.getAll().map((c) => c.name)
+  );
 
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
@@ -34,7 +38,6 @@ export async function GET(request: NextRequest) {
       next
     );
     return NextResponse.redirect(`${request.nextUrl.origin}${next}`);
-
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
     return NextResponse.redirect(
