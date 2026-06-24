@@ -10,13 +10,13 @@ export default function LandingAuthHandler() {
   useEffect(() => {
     if (code) {
       // Auth code landed on / instead of /auth/callback
-      // Redirect to server-side callback handler
-      const next = searchParams.get('next') || '/dashboard';
-      window.location.replace(
-        `/auth/callback?code=${encodeURIComponent(code)}&next=${encodeURIComponent(next)}`
-      );
+      // Preserve ALL query params (especially state which contains PKCE verifier)
+      const currentParams = new URLSearchParams(window.location.search);
+      
+      // Redirect to server-side callback with all original params preserved
+      window.location.replace(`/auth/callback?${currentParams.toString()}`);
     }
-  }, [code, searchParams]);
+  }, [code]);
 
   return null;
 }

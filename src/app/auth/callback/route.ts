@@ -6,10 +6,14 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state');
   const nextFromUrl = searchParams.get('next') ?? '/dashboard';
 
+  console.log('[AUTH CALLBACK] ========== START ==========');
+  console.log('[AUTH CALLBACK] Full URL:', request.url);
   console.log('[AUTH CALLBACK] Code present:', !!code);
   console.log('[AUTH CALLBACK] State present:', !!state);
+  console.log('[AUTH CALLBACK] State value:', state);
 
   if (!code) {
+    console.error('[AUTH CALLBACK] No code in URL');
     return NextResponse.redirect('https://meetscribe-v2.vercel.app/auth/auth-code-error?error=no_code');
   }
 
@@ -40,6 +44,7 @@ export async function GET(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+    console.log('[AUTH CALLBACK] Exchanging token...');
     const tokenResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
       headers: {
@@ -99,6 +104,8 @@ export async function GET(request: NextRequest) {
       secure: true,
     });
 
+    console.log('[AUTH CALLBACK] Redirecting to:', nextPath);
+    console.log('[AUTH CALLBACK] ========== END ==========');
     return response;
 
   } catch (err: any) {
