@@ -2,6 +2,15 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
+  // CRITICAL: Don't interfere with auth callback - let cookies flow through
+  if (request.nextUrl.pathname === '/auth/callback' || request.nextUrl.pathname.startsWith('/auth/callback')) {
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    });
+  }
+
   let supabaseResponse = NextResponse.next({
     request: {
       headers: request.headers,

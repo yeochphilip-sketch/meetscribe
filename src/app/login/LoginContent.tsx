@@ -34,6 +34,7 @@ export default function LoginContent() {
       }
 
       if (data.url) {
+        // Use window.location.href for full page navigation to ensure cookies are set properly
         window.location.href = data.url;
       }
     } catch (err: any) {
