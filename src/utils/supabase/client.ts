@@ -31,6 +31,8 @@ export const createClient = () =>
           if (options.domain) cookie += `; domain=${options.domain}`;
           if (options.sameSite) cookie += `; samesite=${options.sameSite}`;
           if (options.secure) cookie += "; secure";
+          // Ensure SameSite=None for cross-site redirects (OAuth providers)
+          // but Lax for same-site. Supabase handles this; we just pass through.
           document.cookie = cookie;
         },
         remove(name: string, options: any) {
