@@ -2,16 +2,25 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  // CRITICAL: Don't interfere with auth callback - let cookies flow through
+  // CRITICAL: Don't touch auth callback at all — let cookies flow through natively
   if (
     request.nextUrl.pathname === "/auth/callback" ||
     request.nextUrl.pathname.startsWith("/auth/callback")
   ) {
-    return NextResponse.next({
+    const response = NextResponse.next({
       request: {
         headers: request.headers,
       },
     });
+    // Explicitly pass all cookies through untouched
+    request.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value, {
+        path: "/",
+        sameSite: "lax",
+        secure: true,
+      });
+    });
+    return response;
   }
 
   let supabaseResponse = NextResponse.next({
