@@ -1,52 +1,45 @@
 'use client';
 
 import { useState } from 'react';
+import { createClient } from '@/utils/supabase/client';
 
 export default function OnboardingContent() {
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [role, setRole] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  const generatePKCE = async () => {
-    const verifier = Array.from(crypto.getRandomValues(new Uint8Array(64)))
-      .map(b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b % 66])
-      .join('');
-    
-    const encoder = new TextEncoder();
-    const data = encoder.encode(verifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-    
-    return { verifier, challenge };
-  };
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Store onboarding data
+    // Store onboarding data for callback to pick up
     localStorage.setItem('meetscribe-onboarding', JSON.stringify({ name, company, role }));
 
-    const { verifier, challenge } = await generatePKCE();
-    localStorage.setItem('meetscribe-pkce-verifier', verifier);
-    localStorage.setItem('meetscribe-pkce-next', '/plan');
-
-    const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback`;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    // Start Google OAuth with redirect to callback
+    const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=/plan`;
     
-    const params = new URLSearchParams({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      redirect_to: redirectTo,
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-      scopes: 'email profile',
+      options: {
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     });
 
-    window.location.href = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
+    if (error) {
+      console.error('Onboarding error:', error);
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data.url) {
+      window.location.href = data.url;
+    }
   };
 
   return (

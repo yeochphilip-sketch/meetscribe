@@ -2,58 +2,40 @@
 
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 
 export default function LoginContent() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '/dashboard';
-
-  const generatePKCE = async () => {
-    const verifier = Array.from(crypto.getRandomValues(new Uint8Array(64)))
-      .map(b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b % 66])
-      .join('');
-    
-    const encoder = new TextEncoder();
-    const data = encoder.encode(verifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-    
-    return { verifier, challenge };
-  };
+  const supabase = createClient();
 
   const handleOAuthSignIn = async (provider: 'google' | 'github') => {
     setIsLoading(provider);
     setError(null);
 
     try {
-      const { verifier, challenge } = await generatePKCE();
+      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback?next=${encodeURIComponent(next)}`;
       
-      // Store verifier in localStorage
-      localStorage.setItem('meetscribe-pkce-verifier', verifier);
-      localStorage.setItem('meetscribe-pkce-next', next);
-      
-      const redirectTo = `https://meetscribe-v2.vercel.app/auth/callback`;
-      
-      // Build the Supabase OAuth URL manually with our PKCE challenge
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const params = new URLSearchParams({
+      const { data, error: signInError } = await supabase.auth.signInWithOAuth({
         provider,
-        redirect_to: redirectTo,
-        code_challenge: challenge,
-        code_challenge_method: 'S256',
+        options: {
+          redirectTo,
+          queryParams: provider === 'google' ? {
+            access_type: 'offline',
+            prompt: 'consent',
+          } : {},
+        },
       });
-      
-      if (provider === 'google') {
-        params.append('scopes', 'email profile');
+
+      if (signInError) {
+        throw signInError;
       }
-      
-      const oauthUrl = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
-      
-      window.location.href = oauthUrl;
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
       setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
