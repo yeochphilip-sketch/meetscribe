@@ -129,7 +129,6 @@ function LoginForm() {
           </div>
         )}
 
-        {/* Email magic link */}
         <form onSubmit={handleEmailSignIn} className="space-y-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -162,7 +161,6 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* OAuth buttons */}
         <div className="space-y-3">
           <button
             onClick={() => handleOAuthSignIn("google")}
