@@ -25,8 +25,11 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      await signInWithOAuth(provider);
-      // Server action handles redirect, no need for client-side redirect
+      const url = await signInWithOAuth(provider);
+      console.log("[LOGIN] Got OAuth URL:", url.substring(0, 60) + "...");
+      
+      // Client-side redirect to Google OAuth
+      window.location.href = url;
     } catch (err: any) {
       console.error("[LOGIN] OAuth error:", err.message);
       setError(err.message || `Failed to sign in with ${provider}`);
@@ -40,7 +43,6 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      // For email OTP, we'll keep client-side for now
       const { createClient } = await import("@/utils/supabase/client");
       const supabase = createClient();
       const { error: emailError } = await supabase.auth.signInWithOtp({

@@ -2,9 +2,8 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
-export async function signInWithOAuth(provider: 'google' | 'github') {
+export async function signInWithOAuth(provider: 'google' | 'github'): Promise<string> {
   const cookieStore = await cookies();
   
   const supabase = createServerClient(
@@ -35,9 +34,9 @@ export async function signInWithOAuth(provider: 'google' | 'github') {
     throw new Error(error.message);
   }
 
-  if (data.url) {
-    redirect(data.url);
+  if (!data?.url) {
+    throw new Error('No redirect URL returned from Supabase');
   }
 
-  throw new Error('No redirect URL returned');
+  return data.url;
 }

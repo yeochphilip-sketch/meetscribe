@@ -47,8 +47,9 @@ export default function OnboardingContent() {
     setMessage("");
 
     try {
-      await signInWithOAuth("google");
-      // Server action handles redirect
+      const url = await signInWithOAuth("google");
+      console.log("[ONBOARDING] Got OAuth URL:", url.substring(0, 60) + "...");
+      window.location.href = url;
     } catch (err: any) {
       setMessage(err.message || "Something went wrong. Please try again.");
       setLoading(false);
