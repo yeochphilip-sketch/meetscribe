@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
@@ -12,12 +12,14 @@ export default function DashboardContent() {
   const [showToast, setShowToast] = useState(false);
   const [meetings, setMeetings] = useState<any[]>([]);
   const [stats, setStats] = useState({ total: 0, thisWeek: 0 });
-  const [plan, setPlan] = useState('free');
+  const [plan, setPlan] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+  const initRef = useRef(false);
 
   useEffect(() => {
     if (paymentSuccess) {
@@ -27,64 +29,7 @@ export default function DashboardContent() {
     }
   }, [paymentSuccess]);
 
-  // Force refresh session then load user data
-  useEffect(() => {
-    let mounted = true;
-    
-    const init = async () => {
-      // Refresh session first to ensure we have latest auth state
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.user) {
-        if (mounted) {
-          setLoading(false);
-          // Don't redirect here - let the server component handle it
-        }
-        return;
-      }
-
-      if (!mounted) return;
-      
-      const currentUser = session.user;
-      setUser(currentUser);
-      setLoading(false);
-      
-      // Load plan and meetings
-      fetchPlan(currentUser.id);
-      fetchMeetings(currentUser.id);
-    };
-
-    init();
-
-    // Also listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!mounted) return;
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchPlan(session.user.id);
-          fetchMeetings(session.user.id);
-        }
-      }
-    );
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const fetchPlan = async (userId: string) => {
+  const fetchPlan = useCallback(async (userId: string) => {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -94,18 +39,19 @@ export default function DashboardContent() {
 
       if (error) {
         console.error('Profile query error:', error);
+        // Don't show error to user for plan fetch - just default to free
+        setPlan('free');
         return;
       }
 
-      if (profile?.plan) {
-        setPlan(profile.plan);
-      }
+      setPlan(profile?.plan || 'free');
     } catch (err) {
       console.error('Failed to fetch plan:', err);
+      setPlan('free');
     }
-  };
+  }, [supabase]);
 
-  const fetchMeetings = async (userId: string) => {
+  const fetchMeetings = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('meetings')
@@ -130,7 +76,83 @@ export default function DashboardContent() {
     } catch (err) {
       console.error('Failed to fetch meetings:', err);
     }
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+    
+    let mounted = true;
+    
+    const init = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError);
+          if (mounted) {
+            setError('Authentication error. Please sign in again.');
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (!session?.user) {
+          if (mounted) {
+            setLoading(false);
+            setError('Please sign in to view your dashboard.');
+          }
+          return;
+        }
+
+        if (!mounted) return;
+        
+        const currentUser = session.user;
+        setUser(currentUser);
+        setLoading(false);
+        
+        // Load plan and meetings in parallel
+        await Promise.all([
+          fetchPlan(currentUser.id),
+          fetchMeetings(currentUser.id),
+        ]);
+      } catch (err) {
+        console.error('Dashboard init error:', err);
+        if (mounted) {
+          setError('Something went wrong. Please refresh the page.');
+          setLoading(false);
+        }
+      }
+    };
+
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchPlan(session.user.id);
+          fetchMeetings(session.user.id);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, fetchPlan, fetchMeetings]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -175,6 +197,24 @@ export default function DashboardContent() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-3 font-medium inline-block">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
@@ -213,7 +253,7 @@ export default function DashboardContent() {
               href="/plan"
               className="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-all border border-gray-700 text-sm"
             >
-              Plan: {plan.charAt(0).toUpperCase() + plan.slice(1)}
+              Plan: {plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : 'Free'}
             </Link>
             <Link
               href="/new"
@@ -272,7 +312,7 @@ export default function DashboardContent() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                       </svg>
-                      Log out
+                      Sign out
                     </button>
                   </div>
                 </div>
@@ -281,52 +321,64 @@ export default function DashboardContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <p className="text-gray-400 text-sm">Total Meetings</p>
-            <p className="text-3xl font-bold mt-1">{stats.total}</p>
+            <p className="text-gray-400 text-sm mb-1">Total Meetings</p>
+            <p className="text-3xl font-bold">{stats.total}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <p className="text-gray-400 text-sm">This Week</p>
-            <p className="text-3xl font-bold mt-1">{stats.thisWeek}</p>
+            <p className="text-gray-400 text-sm mb-1">This Week</p>
+            <p className="text-3xl font-bold">{stats.thisWeek}</p>
           </div>
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-            <p className="text-gray-400 text-sm">Plan</p>
-            <p className="text-3xl font-bold mt-1 capitalize">{plan}</p>
+            <p className="text-gray-400 text-sm mb-1">Plan</p>
+            <p className="text-3xl font-bold">{plan ? plan.charAt(0).toUpperCase() + plan.slice(1) : 'Free'}</p>
           </div>
         </div>
 
+        {/* Meetings List */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800">
+          <div className="px-6 py-4 border-b border-gray-800 flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Meetings</h2>
+            <Link href="/new" className="text-blue-400 hover:text-blue-300 text-sm">
+              + New Meeting
+            </Link>
           </div>
+          
           {meetings.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-400">
-              <p>No meetings yet. Create your first meeting to get started.</p>
-              <Link href="/new" className="text-blue-400 hover:text-blue-300 mt-2 inline-block">
-                Create a meeting &rarr;
+            <div className="px-6 py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </div>
+              <p className="text-gray-400 mb-2">No meetings yet</p>
+              <p className="text-gray-500 text-sm mb-4">Upload your first meeting recording to get started</p>
+              <Link href="/new" className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded-lg inline-block">
+                Upload Meeting
               </Link>
             </div>
           ) : (
             <div className="divide-y divide-gray-800">
               {meetings.map((meeting) => (
-                <Link
-                  key={meeting.id}
-                  href={`/meeting/${meeting.id}`}
-                  className="block px-6 py-4 hover:bg-gray-800/50 transition-colors"
-                >
+                <div key={meeting.id} className="px-6 py-4 hover:bg-gray-800/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium">{meeting.title}</h3>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {new Date(meeting.created_at).toLocaleDateString()}
+                      <h3 className="font-medium">{meeting.title || 'Untitled Meeting'}</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {meeting.created_at ? new Date(meeting.created_at).toLocaleDateString() : 'Unknown date'}
                       </p>
                     </div>
-                    <span className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded">
-                      {meeting.status}
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      meeting.status === 'completed' 
+                        ? 'bg-green-500/10 text-green-400' 
+                        : 'bg-yellow-500/10 text-yellow-400'
+                    }`}>
+                      {meeting.status || 'Processing'}
                     </span>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}

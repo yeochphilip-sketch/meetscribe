@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let exchangeResponse = NextResponse.next();
+  // We'll build the response after successful exchange
+  let redirectPath = "/dashboard";
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,9 +26,11 @@ export async function GET(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            exchangeResponse.cookies.set(name, value, options);
-          });
+          // Store cookies temporarily - we'll apply them to the final response
+          // @ts-ignore
+          request._pendingCookies = request._pendingCookies || [];
+          // @ts-ignore
+          request._pendingCookies.push(...cookiesToSet);
         },
       },
     }
@@ -52,23 +55,18 @@ export async function GET(request: NextRequest) {
       .eq("id", data.user!.id)
       .maybeSingle();
 
-    let redirectPath = "/dashboard";
     if (!profile?.full_name) {
       redirectPath = "/onboarding";
     }
 
+    // Create final redirect response
     const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);
-    
-    // Copy all cookies from exchangeResponse to finalResponse
-    exchangeResponse.cookies.getAll().forEach((cookie) => {
-      finalResponse.cookies.set(cookie.name, cookie.value, {
-        path: cookie.path,
-        maxAge: cookie.maxAge,
-        domain: cookie.domain,
-        secure: cookie.secure,
-        httpOnly: cookie.httpOnly,
-        sameSite: cookie.sameSite as "strict" | "lax" | "none" | undefined,
-      });
+
+    // Apply all pending cookies
+    // @ts-ignore
+    const pendingCookies = request._pendingCookies || [];
+    pendingCookies.forEach(({ name, value, options }: any) => {
+      finalResponse.cookies.set(name, value, options);
     });
 
     return finalResponse;

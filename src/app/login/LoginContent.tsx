@@ -29,12 +29,6 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      
-      // Store the intended destination for post-auth retrieval
-      sessionStorage.setItem("auth_redirect_next", next);
-      
-      // redirectTo MUST be an exact match with Supabase whitelist
-      // Use the clean callback URL without any query params
       const redirectTo = `${window.location.origin}/auth/callback`;
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
@@ -70,7 +64,6 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      sessionStorage.setItem("auth_redirect_next", next);
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
