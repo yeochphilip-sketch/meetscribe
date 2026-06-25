@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { signInWithOAuth } from "../login/actions";
 
 export default function OnboardingContent() {
   const router = useRouter();
@@ -23,7 +24,6 @@ export default function OnboardingContent() {
       if (session?.user) {
         setUser(session.user);
         
-        // Check if already onboarded
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name")
@@ -35,7 +35,6 @@ export default function OnboardingContent() {
           return;
         }
         
-        // User is auth'd but hasn't completed onboarding
         setStep("details");
       }
     };
@@ -48,27 +47,10 @@ export default function OnboardingContent() {
     setMessage("");
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`;
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { 
-          redirectTo,
-          skipBrowserRedirect: false,
-        },
-      });
-
-      if (error) {
-        setMessage(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      await signInWithOAuth("google");
+      // Server action handles redirect
     } catch (err: any) {
-      setMessage("Something went wrong. Please try again.");
+      setMessage(err.message || "Something went wrong. Please try again.");
       setLoading(false);
     }
   };

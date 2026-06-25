@@ -1,26 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useSearchParams } from "next/navigation";
+import { signInWithOAuth } from "./actions";
 
 export default function LoginContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const next = searchParams.get("next") ?? "/dashboard";
 
   useEffect(() => {
     const urlError = searchParams.get("error");
     if (urlError) {
       setError(decodeURIComponent(urlError));
-      const cleanUrl = window.location.pathname + (next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : "");
-      window.history.replaceState({}, "", cleanUrl);
+      window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [searchParams, next]);
+  }, [searchParams]);
 
   const handleOAuthSignIn = async (provider: "google" | "github") => {
     console.log("[LOGIN] OAuth sign-in clicked:", provider);
@@ -28,30 +25,10 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
-      console.log("[LOGIN] Redirect URL:", redirectTo);
-
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: { 
-          redirectTo,
-          skipBrowserRedirect: false,
-        },
-      });
-
-      console.log("[LOGIN] signInWithOAuth result:", { data: !!data, error: !!oauthError });
-
-      if (oauthError) {
-        console.error("[LOGIN] OAuth error:", oauthError.message);
-        throw oauthError;
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      await signInWithOAuth(provider);
+      // Server action handles redirect, no need for client-side redirect
     } catch (err: any) {
-      console.error("[LOGIN] Unexpected error:", err.message);
+      console.error("[LOGIN] OAuth error:", err.message);
       setError(err.message || `Failed to sign in with ${provider}`);
       setIsLoading(null);
     }
@@ -63,6 +40,8 @@ export default function LoginContent() {
     setError(null);
 
     try {
+      // For email OTP, we'll keep client-side for now
+      const { createClient } = await import("@/utils/supabase/client");
       const supabase = createClient();
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,

@@ -9,13 +9,8 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
-    return NextResponse.redirect(
-      `${origin}/login?error=no_code`
-    );
+    return NextResponse.redirect(`${origin}/login?error=no_code`);
   }
-
-  // We'll build the response after successful exchange
-  let redirectPath = "/dashboard";
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +21,8 @@ export async function GET(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Store cookies temporarily - we'll apply them to the final response
+          // We can't set cookies on a response that doesn't exist yet
+          // So we'll store them and apply after exchange
           // @ts-ignore
           request._pendingCookies = request._pendingCookies || [];
           // @ts-ignore
@@ -55,11 +51,7 @@ export async function GET(request: NextRequest) {
       .eq("id", data.user!.id)
       .maybeSingle();
 
-    if (!profile?.full_name) {
-      redirectPath = "/onboarding";
-    }
-
-    // Create final redirect response
+    const redirectPath = profile?.full_name ? "/dashboard" : "/onboarding";
     const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);
 
     // Apply all pending cookies
@@ -72,8 +64,6 @@ export async function GET(request: NextRequest) {
     return finalResponse;
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
-    return NextResponse.redirect(
-      `${origin}/login?error=unexpected`
-    );
+    return NextResponse.redirect(`${origin}/login?error=unexpected`);
   }
 }
