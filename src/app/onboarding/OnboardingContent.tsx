@@ -62,8 +62,9 @@ export default function OnboardingContent() {
       sessionStorage.setItem("onboarding_name", name);
       sessionStorage.setItem("onboarding_company", company);
       sessionStorage.setItem("onboarding_role", role);
+      sessionStorage.setItem("auth_redirect_next", "/onboarding");
 
-      const redirectTo = `${window.location.origin}/auth/callback?next=/onboarding`;
+      const redirectTo = `${window.location.origin}/auth/callback`;
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -123,6 +124,7 @@ export default function OnboardingContent() {
       sessionStorage.removeItem("onboarding_name");
       sessionStorage.removeItem("onboarding_company");
       sessionStorage.removeItem("onboarding_role");
+      sessionStorage.removeItem("auth_redirect_next");
 
       router.push("/dashboard");
     } catch (err: any) {
