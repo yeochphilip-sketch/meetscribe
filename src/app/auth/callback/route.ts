@@ -13,32 +13,20 @@ export async function GET(request: NextRequest) {
 
   const allCookies = request.cookies.getAll();
   console.log("[AUTH CALLBACK] All cookies:", allCookies.map((c) => c.name));
-  const verifierCookie = allCookies.find((c) =>
-    c.name.includes("code-verifier")
-  );
-  console.log(
-    "[AUTH CALLBACK] Verifier cookie found:",
-    verifierCookie ? "YES" : "NO"
-  );
+  
+  const verifierCookie = allCookies.find((c) => c.name.includes("code-verifier"));
+  console.log("[AUTH CALLBACK] Verifier cookie found:", verifierCookie ? "YES" : "NO");
   if (verifierCookie) {
-    console.log(
-      "[AUTH CALLBACK] Verifier cookie name:",
-      verifierCookie.name,
-      "length:",
-      verifierCookie.value.length
-    );
+    console.log("[AUTH CALLBACK] Verifier cookie name:", verifierCookie.name, "length:", verifierCookie.value.length);
   }
 
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
-    return NextResponse.redirect(
-      `${request.nextUrl.origin}/auth/auth-code-error?error=no_code`
-    );
+    return NextResponse.redirect(`${request.nextUrl.origin}/auth/auth-code-error?error=no_code`);
   }
 
   try {
     const supabase = await createClient();
-
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
@@ -48,10 +36,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log(
-      "[AUTH CALLBACK] Session exchanged successfully, redirecting to:",
-      next
-    );
+    console.log("[AUTH CALLBACK] Session exchanged successfully, redirecting to:", next);
     console.log("[AUTH CALLBACK] ========== END ==========");
     return NextResponse.redirect(`${request.nextUrl.origin}${next}`);
   } catch (err: any) {
