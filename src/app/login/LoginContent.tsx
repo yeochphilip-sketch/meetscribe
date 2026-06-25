@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { signInWithOAuth } from "./actions";
+import { createClient } from "@/utils/supabase/client";
 
 export default function LoginContent() {
   const searchParams = useSearchParams();
@@ -25,13 +25,34 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      const url = await signInWithOAuth(provider);
-      console.log("[LOGIN] Got OAuth URL:", url.substring(0, 60) + "...");
+      const supabase = createClient();
       
-      // Client-side redirect to Google OAuth
-      window.location.href = url;
+      // Use the exact origin - no trailing slash
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      console.log("[LOGIN] Redirect URL:", redirectTo);
+
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { 
+          redirectTo,
+        },
+      });
+
+      console.log("[LOGIN] signInWithOAuth result:", { data: !!data, error: !!oauthError });
+
+      if (oauthError) {
+        console.error("[LOGIN] OAuth error:", oauthError.message);
+        throw oauthError;
+      }
+
+      if (data?.url) {
+        // Use window.location.assign for full page navigation
+        window.location.assign(data.url);
+      } else {
+        throw new Error("No redirect URL returned");
+      }
     } catch (err: any) {
-      console.error("[LOGIN] OAuth error:", err.message);
+      console.error("[LOGIN] Unexpected error:", err.message);
       setError(err.message || `Failed to sign in with ${provider}`);
       setIsLoading(null);
     }
@@ -43,7 +64,6 @@ export default function LoginContent() {
     setError(null);
 
     try {
-      const { createClient } = await import("@/utils/supabase/client");
       const supabase = createClient();
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,

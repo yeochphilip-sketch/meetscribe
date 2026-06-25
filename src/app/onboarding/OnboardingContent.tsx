@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { signInWithOAuth } from "../login/actions";
 
 export default function OnboardingContent() {
   const router = useRouter();
@@ -47,11 +46,26 @@ export default function OnboardingContent() {
     setMessage("");
 
     try {
-      const url = await signInWithOAuth("google");
-      console.log("[ONBOARDING] Got OAuth URL:", url.substring(0, 60) + "...");
-      window.location.href = url;
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { 
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        setMessage(error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.url) {
+        window.location.assign(data.url);
+      }
     } catch (err: any) {
-      setMessage(err.message || "Something went wrong. Please try again.");
+      setMessage("Something went wrong. Please try again.");
       setLoading(false);
     }
   };

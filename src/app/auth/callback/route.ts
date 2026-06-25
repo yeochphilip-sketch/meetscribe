@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // We can't set cookies on a response that doesn't exist yet
-          // So we'll store them and apply after exchange
+          // We need to apply cookies to a response, but we don't have one yet
+          // Store them temporarily
           // @ts-ignore
           request._pendingCookies = request._pendingCookies || [];
           // @ts-ignore
@@ -52,16 +52,16 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     const redirectPath = profile?.full_name ? "/dashboard" : "/onboarding";
-    const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);
+    const response = NextResponse.redirect(`${origin}${redirectPath}`);
 
     // Apply all pending cookies
     // @ts-ignore
     const pendingCookies = request._pendingCookies || [];
     pendingCookies.forEach(({ name, value, options }: any) => {
-      finalResponse.cookies.set(name, value, options);
+      response.cookies.set(name, value, options);
     });
 
-    return finalResponse;
+    return response;
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
     return NextResponse.redirect(`${origin}/login?error=unexpected`);
