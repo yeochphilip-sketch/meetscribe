@@ -4,12 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
-function getRedirectUrl(path: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const cleanOrigin = origin.replace(/\/$/, '');
-  return `${cleanOrigin}/auth/callback?next=${encodeURIComponent(path)}`;
-}
-
 export default function OnboardingContent() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -22,6 +16,7 @@ export default function OnboardingContent() {
 
   const supabase = createClient();
 
+  // On mount: check if user is already authenticated (post-OAuth callback)
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -29,6 +24,7 @@ export default function OnboardingContent() {
       if (session?.user) {
         setIsAuthenticated(true);
         
+        // Try to load onboarding data from sessionStorage
         const storedName = sessionStorage.getItem("onboarding_name");
         const storedCompany = sessionStorage.getItem("onboarding_company");
         const storedRole = sessionStorage.getItem("onboarding_role");
@@ -37,6 +33,7 @@ export default function OnboardingContent() {
         if (storedCompany) setCompany(storedCompany);
         if (storedRole) setRole(storedRole);
         
+        // Check if profile already exists
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name")
@@ -44,6 +41,7 @@ export default function OnboardingContent() {
           .maybeSingle();
           
         if (profile?.full_name) {
+          // Already onboarded, redirect to dashboard
           router.push("/dashboard");
           return;
         }
@@ -65,18 +63,16 @@ export default function OnboardingContent() {
     setMessage("");
 
     try {
+      // Store onboarding data for post-OAuth retrieval
       sessionStorage.setItem("onboarding_name", name);
       sessionStorage.setItem("onboarding_company", company);
       sessionStorage.setItem("onboarding_role", role);
 
-      const redirectTo = getRedirectUrl("/onboarding");
+      const redirectTo = `${window.location.origin}/auth/callback?next=/onboarding`;
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { 
-          redirectTo,
-          skipBrowserRedirect: false,
-        },
+        options: { redirectTo },
       });
 
       if (error) {
@@ -86,7 +82,7 @@ export default function OnboardingContent() {
       }
 
       if (data?.url) {
-        window.location.replace(data.url);
+        window.location.href = data.url;
       }
     } catch (err: any) {
       setMessage("Something went wrong. Please try again.");
@@ -126,6 +122,7 @@ export default function OnboardingContent() {
         return;
       }
 
+      // Clear sessionStorage
       sessionStorage.removeItem("onboarding_name");
       sessionStorage.removeItem("onboarding_company");
       sessionStorage.removeItem("onboarding_role");

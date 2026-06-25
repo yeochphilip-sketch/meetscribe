@@ -4,12 +4,35 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   console.log("[MIDDLEWARE] Path:", request.nextUrl.pathname);
 
-  // Auth callback: pass through completely untouched
+  // Auth callback: pass through with cookies intact
   if (request.nextUrl.pathname.startsWith("/auth/callback")) {
-    console.log("[MIDDLEWARE] Auth callback - passing through");
-    return NextResponse.next({
+    console.log("[MIDDLEWARE] Auth callback - processing with cookie passthrough");
+    
+    let response = NextResponse.next({
       request: { headers: request.headers },
     });
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll(); },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value);
+              response.cookies.set(name, value, {
+                ...options,
+                sameSite: "none",
+                secure: true,
+              });
+            });
+          },
+        },
+      }
+    );
+
+    return response;
   }
 
   let supabaseResponse = NextResponse.next({
@@ -21,9 +44,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
@@ -32,7 +53,11 @@ export async function updateSession(request: NextRequest) {
             request: { headers: request.headers },
           });
           cookiesToSet.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, options);
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              sameSite: "none",
+              secure: true,
+            });
           });
         },
       },
@@ -62,8 +87,9 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Only redirect away from /login if authenticated
-    // /onboarding is allowed for both authenticated and unauthenticated users
+    // Auth pages: login should redirect authenticated users away
+    // Onboarding is now a pre-auth page, so DON'T redirect authenticated users away
+    // (they might be coming back from OAuth callback)
     const isLoginPage = request.nextUrl.pathname === "/login";
 
     if (isLoginPage && user) {

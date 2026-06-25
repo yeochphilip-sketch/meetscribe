@@ -10,6 +10,7 @@ export const createClient = () =>
         persistSession: true,
         detectSessionInUrl: true,
         flowType: "pkce",
+        storageKey: "sb-meetscribe-auth",
       },
     }
   );
