@@ -11,36 +11,37 @@ function CallbackHandler() {
   useEffect(() => {
     const handleCallback = async () => {
       const next = searchParams.get("next") ?? "/dashboard";
+      const code = searchParams.get("code");
+
+      console.log("[AUTH CALLBACK] Code from URL:", code ? "present" : "missing");
+      console.log("[AUTH CALLBACK] Next path:", next);
+
+      if (!code) {
+        console.error("[AUTH CALLBACK] No code in URL");
+        router.push("/auth/auth-code-error?error=no_code");
+        return;
+      }
 
       try {
         const supabase = createClient();
-        
-        // Supabase automatically exchanges the code when detectSessionInUrl is true
-        // We just need to wait for the session to be established
-        const { data: { session }, error } = await supabase.auth.getSession();
+
+        // Manually exchange the code for a session
+        // The PKCE verifier is stored in a cookie by the browser client
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (error) {
-          console.error("[AUTH CALLBACK] Session error:", error.message);
+          console.error("[AUTH CALLBACK] Exchange error:", error.message);
           router.push(`/auth/auth-code-error?error=${encodeURIComponent(error.message)}`);
           return;
         }
 
-        if (session) {
-          console.log("[AUTH CALLBACK] Session established, redirecting to:", next);
+        if (data?.session) {
+          console.log("[AUTH CALLBACK] Session established, user:", data.session.user?.id);
           router.push(next);
           router.refresh();
         } else {
-          // If no session yet, wait a moment and check again
-          // The exchange might still be in progress
-          setTimeout(async () => {
-            const { data: { session: retrySession } } = await supabase.auth.getSession();
-            if (retrySession) {
-              router.push(next);
-              router.refresh();
-            } else {
-              router.push("/auth/auth-code-error?error=no_session");
-            }
-          }, 1000);
+          console.error("[AUTH CALLBACK] No session after exchange");
+          router.push("/auth/auth-code-error?error=no_session_after_exchange");
         }
       } catch (err: any) {
         console.error("[AUTH CALLBACK] Unexpected error:", err.message);
