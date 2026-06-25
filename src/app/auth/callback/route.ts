@@ -4,8 +4,6 @@ import { createServerClient } from "@supabase/ssr";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  
-  // next comes from queryParams which Supabase passes through
   const next = searchParams.get("next") ?? "/dashboard";
 
   console.log("[AUTH CALLBACK] Code present:", !!code);
@@ -18,7 +16,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let exchangeResponse = NextResponse.next();
+  // Determine where to redirect BEFORE the exchange
+  // We need to create the response with the right redirect URL
+  let redirectPath = next;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,8 +29,13 @@ export async function GET(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // We'll apply cookies after we know the final redirect URL
+          // For now, just store them to apply later
           cookiesToSet.forEach(({ name, value, options }) => {
-            exchangeResponse.cookies.set(name, value, options);
+            // @ts-ignore - storing on the request for later use
+            request._cookiesToSet = request._cookiesToSet || [];
+            // @ts-ignore
+            request._cookiesToSet.push({ name, value, options });
           });
         },
       },
@@ -56,23 +61,18 @@ export async function GET(request: NextRequest) {
       .eq("id", data.user!.id)
       .maybeSingle();
 
-    let redirectUrl = `${origin}${next}`;
     if (!profile?.full_name) {
-      redirectUrl = `${origin}/onboarding`;
+      redirectPath = "/onboarding";
     }
 
-    const finalResponse = NextResponse.redirect(redirectUrl);
+    // Now create the final response with the correct redirect
+    const finalResponse = NextResponse.redirect(`${origin}${redirectPath}`);
     
-    // Copy all cookies from exchangeResponse to finalResponse
-    exchangeResponse.cookies.getAll().forEach((cookie) => {
-      finalResponse.cookies.set(cookie.name, cookie.value, {
-        path: cookie.path,
-        maxAge: cookie.maxAge,
-        domain: cookie.domain,
-        secure: cookie.secure,
-        httpOnly: cookie.httpOnly,
-        sameSite: cookie.sameSite as "strict" | "lax" | "none" | undefined,
-      });
+    // Apply all cookies that were stored during exchange
+    // @ts-ignore
+    const cookiesToSet = request._cookiesToSet || [];
+    cookiesToSet.forEach(({ name, value, options }: any) => {
+      finalResponse.cookies.set(name, value, options);
     });
 
     return finalResponse;

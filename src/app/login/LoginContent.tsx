@@ -30,18 +30,14 @@ export default function LoginContent() {
     try {
       const supabase = createClient();
       
-      // The redirectTo MUST match exactly what's in Supabase dashboard
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      // redirectTo must match exactly what's in Supabase dashboard
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: { 
           redirectTo,
-          // Pass next via queryParams so Supabase includes it in the callback
-          queryParams: {
-            next: next,
-          },
           skipBrowserRedirect: false,
         },
       });
@@ -54,7 +50,7 @@ export default function LoginContent() {
       }
 
       if (data?.url) {
-        window.location.replace(data.url);
+        window.location.href = data.url;
       }
     } catch (err: any) {
       console.error("[LOGIN] Unexpected error:", err.message);
@@ -73,7 +69,7 @@ export default function LoginContent() {
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
 

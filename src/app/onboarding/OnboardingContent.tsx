@@ -63,15 +63,12 @@ export default function OnboardingContent() {
       sessionStorage.setItem("onboarding_company", company);
       sessionStorage.setItem("onboarding_role", role);
 
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const redirectTo = `${window.location.origin}/auth/callback?next=/onboarding`;
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { 
           redirectTo,
-          queryParams: {
-            next: "/onboarding",
-          },
           skipBrowserRedirect: false,
         },
       });
@@ -83,7 +80,7 @@ export default function OnboardingContent() {
       }
 
       if (data?.url) {
-        window.location.replace(data.url);
+        window.location.href = data.url;
       }
     } catch (err: any) {
       setMessage("Something went wrong. Please try again.");
