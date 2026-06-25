@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -17,44 +17,31 @@ function LoginForm() {
     setError(null);
 
     try {
-      console.log("[LOGIN] Creating Supabase client...");
-      const supabase = createClient();
-      
-      console.log("[LOGIN] Calling signInWithOAuth for provider:", provider);
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: "pkce",
+            storage: window.localStorage,
+          },
+        }
+      );
+
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-          queryParams:
-            provider === "google"
-              ? {
-                  access_type: "offline",
-                  prompt: "consent",
-                }
-              : undefined,
         },
       });
 
-      console.log("[LOGIN] signInWithOAuth result - data:", !!data, "error:", !!oauthError);
-
-      if (oauthError) {
-        console.error("[LOGIN] OAuth error:", oauthError.message);
-        throw oauthError;
-      }
-
-      if (data?.url) {
-        console.log("[LOGIN] Redirecting to:", data.url.substring(0, 100));
-        
-        // Check cookies before redirect
-        console.log("[LOGIN] All cookies before redirect:", document.cookie.split("; ").map(c => c.split("=")[0]));
-        
-        window.location.href = data.url;
-      } else {
-        throw new Error("No OAuth URL returned");
-      }
+      if (oauthError) throw oauthError;
+      if (data?.url) window.location.href = data.url;
     } catch (err: any) {
-      console.error("[LOGIN] Sign in error:", err.message);
-      setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
+      setError(err.message || `Failed to sign in with ${provider}`);
       setIsLoading(null);
     }
   };
@@ -65,7 +52,20 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient();
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: "pkce",
+            storage: window.localStorage,
+          },
+        }
+      );
+
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -73,14 +73,10 @@ function LoginForm() {
         },
       });
 
-      if (emailError) {
-        throw emailError;
-      }
-
+      if (emailError) throw emailError;
       setEmailSent(true);
     } catch (err: any) {
-      console.error("Email sign in error:", err);
-      setError(err.message || "Failed to send magic link. Please try again.");
+      setError(err.message || "Failed to send magic link");
     } finally {
       setIsLoading(null);
     }
