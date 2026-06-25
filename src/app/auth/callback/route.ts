@@ -12,10 +12,15 @@ export async function GET(request: NextRequest) {
   console.log("[AUTH CALLBACK] Next path:", next);
 
   const allCookies = request.cookies.getAll();
-  console.log("[AUTH CALLBACK] All cookies:", allCookies.map((c) => `${c.name}=${c.value.substring(0, 20)}...`));
+  console.log("[AUTH CALLBACK] Total cookies:", allCookies.length);
+  console.log("[AUTH CALLBACK] All cookie names:", allCookies.map((c) => c.name));
+  
+  allCookies.forEach((c) => {
+    console.log(`[AUTH CALLBACK] Cookie ${c.name}: length=${c.value.length}, value starts with=${c.value.substring(0, 30)}...`);
+  });
 
-  const verifierCookie = allCookies.find((c) => c.name.includes("code-verifier"));
-  console.log("[AUTH CALLBACK] Verifier cookie found:", verifierCookie ? "YES" : "NO");
+  const verifierCookie = allCookies.find((c) => c.name.includes("verifier"));
+  console.log("[AUTH CALLBACK] Any verifier cookie:", verifierCookie ? verifierCookie.name : "NO");
 
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");

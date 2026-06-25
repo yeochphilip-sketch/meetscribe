@@ -13,27 +13,33 @@ export const createClient = () =>
       },
       cookies: {
         get(name: string) {
-          const cookie = document.cookie
-            .split("; ")
-            .find((row) => row.startsWith(`${name}=`));
-          if (!cookie) return undefined;
+          const allCookies = document.cookie.split("; ");
+          const cookie = allCookies.find((row) => row.trim().startsWith(`${name}=`));
+          if (!cookie) {
+            console.log(`[COOKIE GET] ${name}: NOT FOUND`);
+            return undefined;
+          }
           try {
-            return decodeURIComponent(cookie.split("=")[1]);
+            const value = decodeURIComponent(cookie.split("=")[1]);
+            console.log(`[COOKIE GET] ${name}: FOUND (length ${value.length})`);
+            return value;
           } catch {
-            return cookie.split("=")[1];
+            const value = cookie.split("=")[1];
+            console.log(`[COOKIE GET] ${name}: FOUND (raw, length ${value.length})`);
+            return value;
           }
         },
         set(name: string, value: string, options: any) {
-          let cookieStr = `${name}=${encodeURIComponent(value)}`;
+          console.log(`[COOKIE SET] ${name}: setting with options`, JSON.stringify(options));
           
-          // Use Path with capital P (RFC standard)
+          let cookieStr = `${name}=${encodeURIComponent(value)}`;
           cookieStr += `; Path=/`;
           
-          if (options.maxAge !== undefined && options.maxAge !== null) {
+          if (options?.maxAge !== undefined && options?.maxAge !== null) {
             cookieStr += `; Max-Age=${options.maxAge}`;
           }
           
-          if (options.expires) {
+          if (options?.expires) {
             let expiresStr: string;
             if (options.expires instanceof Date) {
               expiresStr = options.expires.toUTCString();
@@ -45,25 +51,18 @@ export const createClient = () =>
             cookieStr += `; Expires=${expiresStr}`;
           }
           
-          if (options.domain) {
+          if (options?.domain) {
             cookieStr += `; Domain=${options.domain}`;
           }
           
-          // For PKCE code-verifier cookies, use SameSite=None;Secure
-          // so they survive cross-site redirects from OAuth providers
-          if (name.includes("code-verifier")) {
-            cookieStr += "; SameSite=None; Secure";
-          } else if (options.sameSite) {
-            cookieStr += `; SameSite=${options.sameSite}`;
-          }
-          
-          if (options.secure && !name.includes("code-verifier")) {
-            cookieStr += "; Secure";
-          }
+          // Force SameSite=None;Secure for all cookies to ensure they survive redirects
+          cookieStr += "; SameSite=None; Secure";
           
           document.cookie = cookieStr;
+          console.log(`[COOKIE SET] ${name}: DONE - ${cookieStr.substring(0, 100)}...`);
         },
         remove(name: string, options: any) {
+          console.log(`[COOKIE REMOVE] ${name}`);
           let cookieStr = `${name}=; Max-Age=0; Path=/`;
           if (options?.domain) {
             cookieStr += `; Domain=${options.domain}`;
