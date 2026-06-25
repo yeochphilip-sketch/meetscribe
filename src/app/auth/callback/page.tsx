@@ -13,8 +13,6 @@ function CallbackHandler() {
       const next = searchParams.get("next") ?? "/dashboard";
 
       try {
-        // Use standard Supabase client (same as login page)
-        // This reads the PKCE verifier from localStorage
         const supabase = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -30,7 +28,7 @@ function CallbackHandler() {
         );
 
         // detectSessionInUrl should automatically exchange the code
-        // We just need to check if session is established
+        // when the page loads with ?code= in the URL
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
@@ -43,24 +41,31 @@ function CallbackHandler() {
           console.log("[AUTH CALLBACK] Session established, redirecting to:", next);
           router.push(next);
           router.refresh();
-        } else {
-          // Try exchangeCodeForSession directly
-          const code = searchParams.get("code");
-          if (code) {
-            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeError) {
-              console.error("[AUTH CALLBACK] Exchange error:", exchangeError.message);
-              router.push(`/auth/auth-code-error?error=${encodeURIComponent(exchangeError.message)}`);
-              return;
-            }
-            if (exchangeData?.session) {
-              router.push(next);
-              router.refresh();
-              return;
-            }
-          }
-          router.push("/auth/auth-code-error?error=no_session");
+          return;
         }
+
+        // If no session yet, try direct exchange
+        const code = searchParams.get("code");
+        if (code) {
+          console.log("[AUTH CALLBACK] Trying direct exchange with code");
+          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          
+          if (exchangeError) {
+            console.error("[AUTH CALLBACK] Exchange error:", exchangeError.message);
+            router.push(`/auth/auth-code-error?error=${encodeURIComponent(exchangeError.message)}`);
+            return;
+          }
+          
+          if (exchangeData?.session) {
+            console.log("[AUTH CALLBACK] Exchange succeeded, redirecting to:", next);
+            router.push(next);
+            router.refresh();
+            return;
+          }
+        }
+
+        console.error("[AUTH CALLBACK] No session after all attempts");
+        router.push("/auth/auth-code-error?error=no_session");
       } catch (err: any) {
         console.error("[AUTH CALLBACK] Unexpected error:", err.message);
         router.push(`/auth/auth-code-error?error=unexpected&details=${encodeURIComponent(err.message)}`);

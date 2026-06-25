@@ -17,8 +17,6 @@ function LoginForm() {
     setError(null);
 
     try {
-      // Use standard Supabase client (NOT @supabase/ssr) for OAuth
-      // This stores PKCE verifier in localStorage, which survives redirects
       const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
