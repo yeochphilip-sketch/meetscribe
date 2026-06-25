@@ -2,11 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  console.log("[MIDDLEWARE] Path:", request.nextUrl.pathname);
+  console.log("[MIDDLEWARE] Incoming cookies:", request.cookies.getAll().map(c => c.name));
+
   // Pass auth callback through completely untouched
   if (
     request.nextUrl.pathname === "/auth/callback" ||
     request.nextUrl.pathname.startsWith("/auth/callback")
   ) {
+    console.log("[MIDDLEWARE] Auth callback detected - passing through untouched");
     return NextResponse.next({
       request: {
         headers: request.headers,
