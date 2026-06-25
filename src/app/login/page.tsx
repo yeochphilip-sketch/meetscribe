@@ -18,7 +18,10 @@ function LoginForm() {
 
     try {
       const supabase = createClient();
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      // CRITICAL: signInWithOAuth returns { data: { url }, error }
+      // We MUST redirect to data.url. The PKCE verifier is stored in a cookie
+      // by @supabase/ssr before this function returns.
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
@@ -34,6 +37,13 @@ function LoginForm() {
 
       if (oauthError) {
         throw oauthError;
+      }
+
+      // THIS IS THE FIX: redirect to the OAuth provider URL
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No OAuth URL returned from Supabase");
       }
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
