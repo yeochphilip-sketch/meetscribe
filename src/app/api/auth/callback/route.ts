@@ -1,54 +1,70 @@
-// Vercel deployment trigger - force rebuild
-export const runtime = 'nodejs';
+import { NextRequest, NextResponse } from "next/server";
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const { code, codeVerifier, next = "/dashboard" } = body;
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const code = searchParams.get('code');
-
-  if (code) {
-    try {
-      const supabase = await createClient();
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-      if (!error) {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (user) {
-          let hasPlan = false;
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from('profiles')
-              .select('plan')
-              .eq('id', user.id)
-              .maybeSingle();
-
-            if (profileError) {
-              console.error('Profile query error:', profileError);
-            }
-
-            hasPlan = !!profile?.plan;
-          } catch (err) {
-            console.error('Profile check failed:', err);
-            hasPlan = false;
-          }
-
-          if (!hasPlan) {
-            return NextResponse.redirect(new URL('/plan', req.url));
-          }
-
-          return NextResponse.redirect(new URL('/dashboard', req.url));
-        }
-      } else {
-        console.error('Auth callback exchange error:', error);
-      }
-    } catch (err) {
-      console.error('Auth callback error:', err);
-    }
+  if (!code || !codeVerifier) {
+    return NextResponse.json(
+      { error: "Missing code or codeVerifier" },
+      { status: 400 }
+    );
   }
 
-  return NextResponse.redirect(new URL('/login', req.url));
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+    const tokenResponse = await fetch(
+      `${supabaseUrl}/auth/v1/token?grant_type=pkce`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": supabaseAnonKey,
+          "Authorization": `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          auth_code: code,
+          code_verifier: codeVerifier,
+        }),
+      }
+    );
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error("[SERVER CALLBACK] Token exchange failed:", tokenResponse.status, errorText);
+      return NextResponse.json(
+        { error: "Token exchange failed", details: errorText },
+        { status: 400 }
+      );
+    }
+
+    const tokenData = await tokenResponse.json();
+
+    // Set session cookies using @supabase/ssr server client
+    const { createClient } = await import("@/utils/supabase/server");
+    const supabase = await createClient();
+
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+    });
+
+    if (sessionError) {
+      console.error("[SERVER CALLBACK] Set session error:", sessionError.message);
+      return NextResponse.json(
+        { error: "Session error", details: sessionError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, next });
+  } catch (err: any) {
+    console.error("[SERVER CALLBACK] Unexpected error:", err.message);
+    return NextResponse.json(
+      { error: "Unexpected error", details: err.message },
+      { status: 500 }
+    );
+  }
 }
-// deployment trigger
