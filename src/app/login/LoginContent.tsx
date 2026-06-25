@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
@@ -13,6 +13,15 @@ export default function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const next = searchParams.get("next") ?? "/dashboard";
 
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) {
+      setError(decodeURIComponent(urlError));
+      const cleanUrl = window.location.pathname + (next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : "");
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }, [searchParams, next]);
+
   const handleOAuthSignIn = async (provider: "google" | "github") => {
     console.log("[LOGIN] OAuth sign-in clicked:", provider);
     setIsLoading(provider);
@@ -20,12 +29,21 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      
+      // The redirectTo MUST match exactly what's in Supabase dashboard
+      const redirectTo = `${window.location.origin}/auth/callback`;
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo },
+        options: { 
+          redirectTo,
+          // Pass next via queryParams so Supabase includes it in the callback
+          queryParams: {
+            next: next,
+          },
+          skipBrowserRedirect: false,
+        },
       });
 
       console.log("[LOGIN] signInWithOAuth result:", { data: !!data, error: !!oauthError });
@@ -36,7 +54,7 @@ export default function LoginContent() {
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        window.location.replace(data.url);
       }
     } catch (err: any) {
       console.error("[LOGIN] Unexpected error:", err.message);
@@ -55,7 +73,7 @@ export default function LoginContent() {
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 

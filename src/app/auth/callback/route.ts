@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
+  
+  // next comes from queryParams which Supabase passes through
   const next = searchParams.get("next") ?? "/dashboard";
 
   console.log("[AUTH CALLBACK] Code present:", !!code);
@@ -12,11 +14,11 @@ export async function GET(request: NextRequest) {
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
     return NextResponse.redirect(
-      `${request.nextUrl.origin}/login?error=no_code`
+      `${origin}/login?error=no_code`
     );
   }
 
-  let response = NextResponse.redirect(`${request.nextUrl.origin}${next}`);
+  let exchangeResponse = NextResponse.next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,11 +30,7 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, {
-              ...options,
-              sameSite: "none",
-              secure: true,
-            });
+            exchangeResponse.cookies.set(name, value, options);
           });
         },
       },
@@ -45,42 +43,43 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("[AUTH CALLBACK] Exchange error:", error.message);
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/login?error=${encodeURIComponent(error.message)}`
+        `${origin}/login?error=${encodeURIComponent(error.message)}`
       );
     }
 
     console.log("[AUTH CALLBACK] Exchange success! User:", data?.user?.email ?? "no email");
 
-    // Check if user has a profile (has completed onboarding)
+    // Check if user has completed onboarding
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, company_name, role")
+      .select("full_name")
       .eq("id", data.user!.id)
       .maybeSingle();
 
-    // If coming from onboarding (next=/onboarding), save the profile data
-    if (next === "/onboarding" && data.user) {
-      // Try to get onboarding data from query params (if passed through)
-      // The onboarding page will handle sessionStorage → profile creation
-      // For now, just redirect to onboarding page with session set
-      response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
-      // Re-apply session cookies
-      const { data: sessionData } = await supabase.auth.getSession();
-      return response;
-    }
-
-    // If no profile exists, redirect to onboarding
+    let redirectUrl = `${origin}${next}`;
     if (!profile?.full_name) {
-      response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
-      return response;
+      redirectUrl = `${origin}/onboarding`;
     }
 
-    // Otherwise go to the requested next page or dashboard
-    return response;
+    const finalResponse = NextResponse.redirect(redirectUrl);
+    
+    // Copy all cookies from exchangeResponse to finalResponse
+    exchangeResponse.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie.name, cookie.value, {
+        path: cookie.path,
+        maxAge: cookie.maxAge,
+        domain: cookie.domain,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite as "strict" | "lax" | "none" | undefined,
+      });
+    });
+
+    return finalResponse;
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
     return NextResponse.redirect(
-      `${request.nextUrl.origin}/login?error=unexpected`
+      `${origin}/login?error=unexpected`
     );
   }
 }
