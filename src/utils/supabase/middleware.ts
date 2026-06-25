@@ -2,27 +2,16 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  // CRITICAL: Pass auth callback through completely untouched.
-  // Do NOT create a new response object — reuse the incoming request cookies.
+  // Pass auth callback through completely untouched
   if (
     request.nextUrl.pathname === "/auth/callback" ||
     request.nextUrl.pathname.startsWith("/auth/callback")
   ) {
-    const response = NextResponse.next({
+    return NextResponse.next({
       request: {
         headers: request.headers,
       },
     });
-    // Edge/Safari can drop cookies if we don't explicitly re-set them.
-    // Re-apply every cookie with its original options.
-    request.cookies.getAll().forEach((cookie) => {
-      response.cookies.set(cookie.name, cookie.value, {
-        path: "/",
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      });
-    });
-    return response;
   }
 
   let supabaseResponse = NextResponse.next({
@@ -56,38 +45,42 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const authRequiredPaths = [
-    "/dashboard",
-    "/plan",
-    "/settings",
-    "/checkout",
-    "/new",
-    "/meeting",
-  ];
-  const isAuthRequired = authRequiredPaths.some((path) =>
-    request.nextUrl.pathname.startsWith(path)
-  );
+    const authRequiredPaths = [
+      "/dashboard",
+      "/plan",
+      "/settings",
+      "/checkout",
+      "/new",
+      "/meeting",
+    ];
+    const isAuthRequired = authRequiredPaths.some((path) =>
+      request.nextUrl.pathname.startsWith(path)
+    );
 
-  if (isAuthRequired && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
+    if (isAuthRequired && !user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
 
-  const authPages = ["/login", "/onboarding"];
-  const isAuthPage = authPages.some(
-    (path) => request.nextUrl.pathname === path
-  );
+    const authPages = ["/login", "/onboarding"];
+    const isAuthPage = authPages.some(
+      (path) => request.nextUrl.pathname === path
+    );
 
-  if (isAuthPage && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    if (isAuthPage && user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  } catch (err) {
+    console.error("[MIDDLEWARE] Auth error:", err);
   }
 
   return supabaseResponse;
