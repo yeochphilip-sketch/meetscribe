@@ -29,8 +29,16 @@ export const createClient = () =>
           if (options?.maxAge) cookieStr += `; Max-Age=${options.maxAge}`;
           if (options?.expires) cookieStr += `; Expires=${options.expires.toUTCString()}`;
           if (options?.domain) cookieStr += `; Domain=${options.domain}`;
-          if (options?.sameSite) cookieStr += `; SameSite=${options.sameSite}`;
-          if (options?.secure) cookieStr += "; Secure";
+          
+          // For PKCE verifier: SameSite=None + Secure + Partitioned (CHIPS)
+          // This is required for cross-site redirects in modern Chrome/Edge
+          if (name.includes("code-verifier")) {
+            cookieStr += "; SameSite=None; Secure; Partitioned";
+          } else {
+            cookieStr += `; SameSite=${options?.sameSite || "Lax"}`;
+            if (options?.secure) cookieStr += "; Secure";
+          }
+          
           document.cookie = cookieStr;
         },
         remove(name: string, options: any) {
