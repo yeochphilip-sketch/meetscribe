@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -17,36 +16,26 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-          queryParams:
-            provider === "google"
-              ? {
-                  access_type: "offline",
-                  prompt: "consent",
-                }
-              : undefined,
-        },
+      const resp = await fetch("/api/auth/oauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, next }),
       });
 
-      if (oauthError) {
-        throw oauthError;
+      const data = await resp.json();
+
+      if (!resp.ok || data.error) {
+        throw new Error(data.error || "Failed to initiate OAuth");
       }
 
-      // CRITICAL: Redirect to the OAuth URL returned by Supabase
-      if (data?.url) {
+      if (data.url) {
         window.location.href = data.url;
       } else {
-        throw new Error("No OAuth URL returned from Supabase");
+        throw new Error("No OAuth URL returned");
       }
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
-      setError(
-        err.message || `Failed to sign in with ${provider}. Please try again.`
-      );
+      setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
       setIsLoading(null);
     }
   };
@@ -57,16 +46,16 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: emailError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
+      const resp = await fetch("/api/auth/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, next }),
       });
 
-      if (emailError) {
-        throw emailError;
+      const data = await resp.json();
+
+      if (!resp.ok || data.error) {
+        throw new Error(data.error || "Failed to send magic link");
       }
 
       setEmailSent(true);
