@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
 
 function generatePKCE() {
   const array = new Uint8Array(32);
@@ -26,37 +25,32 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const codeVerifier = generatePKCE();
+      const stateData = btoa(JSON.stringify({
+        v: codeVerifier,
+        n: next,
+        ts: Date.now()
+      }));
+
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
+      const params = new URLSearchParams({
         provider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-          queryParams:
-            provider === "google"
-              ? {
-                  access_type: "offline",
-                  prompt: "consent",
-                }
-              : undefined,
-        },
+        redirect_to: redirectTo,
       });
 
-      if (oauthError) {
-        throw oauthError;
+      if (provider === "google") {
+        params.append("scopes", "email profile openid");
       }
 
-      // Fallback: if signInWithOAuth doesn't redirect automatically,
-      // we manually redirect to the OAuth URL
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No OAuth URL returned from Supabase");
-      }
+      params.append("state", stateData);
+
+      const oauthUrl = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
+      window.location.href = oauthUrl;
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
-      setError(
-        err.message || `Failed to sign in with ${provider}. Please try again.`
-      );
+      setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
       setIsLoading(null);
     }
   };
@@ -67,16 +61,25 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient();
-      const { error: emailError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      
+      const resp = await fetch(`${supabaseUrl}/auth/v1/otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         },
+        body: JSON.stringify({
+          email,
+          create_user: true,
+          gotrue_meta_security: {},
+        }),
       });
-
-      if (emailError) {
-        throw emailError;
+      
+      if (!resp.ok) {
+        const errData = await resp.json();
+        throw new Error(errData.message || "Failed to send magic link");
       }
 
       setEmailSent(true);
