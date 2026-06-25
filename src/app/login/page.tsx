@@ -2,25 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-
-function generatePKCE() {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
-
-async function sha256(plain: string) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(plain);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return btoa(String.fromCharCode(...new Uint8Array(hash)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=/g, "");
-}
+import { createClient } from "@supabase/supabase-js";
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -35,37 +17,45 @@ function LoginForm() {
     setError(null);
 
     try {
-      const codeVerifier = generatePKCE();
-      const codeChallenge = await sha256(codeVerifier);
+      // Use standard Supabase client (NOT @supabase/ssr) for OAuth
+      // This stores PKCE verifier in localStorage, which survives redirects
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: "pkce",
+            storage: typeof window !== "undefined" ? window.localStorage : undefined,
+          },
+        }
+      );
 
-      // Store verifier in localStorage with a random key
-      const verifierKey = `pkce_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-      localStorage.setItem(verifierKey, codeVerifier);
-
-      const stateData = btoa(JSON.stringify({
-        k: verifierKey,
-        n: next,
-        p: provider,
-      }));
-
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const redirectTo = `${window.location.origin}/auth/callback`;
-
-      const params = new URLSearchParams({
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
-        redirect_to: redirectTo,
-        code_challenge: codeChallenge,
-        code_challenge_method: "S256",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          queryParams:
+            provider === "google"
+              ? {
+                  access_type: "offline",
+                  prompt: "consent",
+                }
+              : undefined,
+        },
       });
 
-      if (provider === "google") {
-        params.append("scopes", "email profile openid");
+      if (oauthError) {
+        throw oauthError;
       }
 
-      params.append("state", stateData);
-
-      const oauthUrl = `${supabaseUrl}/auth/v1/authorize?${params.toString()}`;
-      window.location.href = oauthUrl;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No OAuth URL returned");
+      }
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
       setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
@@ -79,25 +69,29 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+            flowType: "pkce",
+            storage: typeof window !== "undefined" ? window.localStorage : undefined,
+          },
+        }
+      );
 
-      const resp = await fetch(`${supabaseUrl}/auth/v1/otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      const { error: emailError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
-        body: JSON.stringify({
-          email,
-          create_user: true,
-          gotrue_meta_security: {},
-        }),
       });
 
-      if (!resp.ok) {
-        const errData = await resp.json();
-        throw new Error(errData.message || "Failed to send magic link");
+      if (emailError) {
+        throw emailError;
       }
 
       setEmailSent(true);

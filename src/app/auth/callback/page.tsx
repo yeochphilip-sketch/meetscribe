@@ -2,6 +2,7 @@
 
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 function CallbackHandler() {
   const router = useRouter();
@@ -9,95 +10,57 @@ function CallbackHandler() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get("code");
-      const state = searchParams.get("state");
-      const nextFromUrl = searchParams.get("next") ?? "/dashboard";
-
-      console.log("[AUTH CALLBACK] Code present:", !!code);
-      console.log("[AUTH CALLBACK] State present:", !!state);
-
-      if (!code) {
-        console.error("[AUTH CALLBACK] No code in URL");
-        router.push("/auth/auth-code-error?error=no_code");
-        return;
-      }
-
-      // Recover PKCE verifier from localStorage using state
-      let codeVerifier: string | null = null;
-      let nextPath = nextFromUrl;
-
-      if (state) {
-        try {
-          const stateData = JSON.parse(atob(state));
-          const verifierKey = stateData.k;
-          nextPath = stateData.n || nextFromUrl;
-          console.log("[AUTH CALLBACK] Verifier key:", verifierKey);
-
-          codeVerifier = localStorage.getItem(verifierKey);
-          console.log("[AUTH CALLBACK] Verifier from localStorage:", codeVerifier ? "found" : "NOT FOUND");
-
-          // Clean up localStorage
-          if (verifierKey) {
-            localStorage.removeItem(verifierKey);
-          }
-        } catch (e) {
-          console.error("[AUTH CALLBACK] Failed to decode state:", e);
-        }
-      }
-
-      if (!codeVerifier) {
-        console.error("[AUTH CALLBACK] No PKCE verifier found");
-        router.push("/auth/auth-code-error?error=pkce_not_found");
-        return;
-      }
+      const next = searchParams.get("next") ?? "/dashboard";
 
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        // Use standard Supabase client (same as login page)
+        // This reads the PKCE verifier from localStorage
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            auth: {
+              autoRefreshToken: true,
+              persistSession: true,
+              detectSessionInUrl: true,
+              flowType: "pkce",
+              storage: typeof window !== "undefined" ? window.localStorage : undefined,
+            },
+          }
+        );
 
-        console.log("[AUTH CALLBACK] Exchanging token...");
-        const tokenResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=pkce`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": supabaseAnonKey,
-            "Authorization": `Bearer ${supabaseAnonKey}`,
-          },
-          body: JSON.stringify({
-            auth_code: code,
-            code_verifier: codeVerifier,
-          }),
-        });
+        // detectSessionInUrl should automatically exchange the code
+        // We just need to check if session is established
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (!tokenResponse.ok) {
-          const errorText = await tokenResponse.text();
-          console.error("[AUTH CALLBACK] Token exchange failed:", tokenResponse.status, errorText);
-          router.push(`/auth/auth-code-error?error=token_exchange&details=${encodeURIComponent(errorText)}`);
+        if (error) {
+          console.error("[AUTH CALLBACK] Session error:", error.message);
+          router.push(`/auth/auth-code-error?error=${encodeURIComponent(error.message)}`);
           return;
         }
 
-        const tokenData = await tokenResponse.json();
-        console.log("[AUTH CALLBACK] Token exchange success, user:", tokenData.user?.id);
-
-        // Now set the session using the Supabase client
-        const { createClient } = await import("@/utils/supabase/client");
-        const supabase = createClient();
-
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-        });
-
-        if (sessionError) {
-          console.error("[AUTH CALLBACK] Set session error:", sessionError.message);
-          router.push(`/auth/auth-code-error?error=session_error&details=${encodeURIComponent(sessionError.message)}`);
-          return;
+        if (session) {
+          console.log("[AUTH CALLBACK] Session established, redirecting to:", next);
+          router.push(next);
+          router.refresh();
+        } else {
+          // Try exchangeCodeForSession directly
+          const code = searchParams.get("code");
+          if (code) {
+            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError) {
+              console.error("[AUTH CALLBACK] Exchange error:", exchangeError.message);
+              router.push(`/auth/auth-code-error?error=${encodeURIComponent(exchangeError.message)}`);
+              return;
+            }
+            if (exchangeData?.session) {
+              router.push(next);
+              router.refresh();
+              return;
+            }
+          }
+          router.push("/auth/auth-code-error?error=no_session");
         }
-
-        console.log("[AUTH CALLBACK] Session set, redirecting to:", nextPath);
-        router.push(nextPath);
-        router.refresh();
-
       } catch (err: any) {
         console.error("[AUTH CALLBACK] Unexpected error:", err.message);
         router.push(`/auth/auth-code-error?error=unexpected&details=${encodeURIComponent(err.message)}`);
