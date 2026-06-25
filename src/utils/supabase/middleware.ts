@@ -3,19 +3,42 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
   console.log("[MIDDLEWARE] Path:", request.nextUrl.pathname);
-  console.log("[MIDDLEWARE] Incoming cookies:", request.cookies.getAll().map(c => c.name));
 
-  // Pass auth callback through completely untouched
-  if (
-    request.nextUrl.pathname === "/auth/callback" ||
-    request.nextUrl.pathname.startsWith("/auth/callback")
-  ) {
-    console.log("[MIDDLEWARE] Auth callback detected - passing through untouched");
-    return NextResponse.next({
+  // Auth callback: pass through with cookies intact, but still create response
+  // so Supabase can read/write cookies properly
+  if (request.nextUrl.pathname.startsWith("/auth/callback")) {
+    console.log("[MIDDLEWARE] Auth callback - processing with cookie passthrough");
+    
+    let response = NextResponse.next({
       request: {
         headers: request.headers,
       },
     });
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value);
+              response.cookies.set(name, value, {
+                ...options,
+                sameSite: "none",
+                secure: true,
+              });
+            });
+          },
+        },
+      }
+    );
+
+    // Just let the callback route handle the exchange
+    return response;
   }
 
   let supabaseResponse = NextResponse.next({
@@ -33,17 +56,21 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+          });
           supabaseResponse = NextResponse.next({
             request: {
               headers: request.headers,
             },
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              sameSite: "none",
+              secure: true,
+            });
+          });
         },
       },
     }
