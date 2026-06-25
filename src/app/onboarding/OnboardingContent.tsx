@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
+function getRedirectUrl(path: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const cleanOrigin = origin.replace(/\/$/, '');
+  return `${cleanOrigin}/auth/callback?next=${encodeURIComponent(path)}`;
+}
+
 export default function OnboardingContent() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -63,7 +69,7 @@ export default function OnboardingContent() {
       sessionStorage.setItem("onboarding_company", company);
       sessionStorage.setItem("onboarding_role", role);
 
-      const redirectTo = `${window.location.origin}/auth/callback?next=/onboarding`;
+      const redirectTo = getRedirectUrl("/onboarding");
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",

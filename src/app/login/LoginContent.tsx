@@ -4,6 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
+function getRedirectUrl(path: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  // Ensure no trailing slash on origin, and proper path
+  const cleanOrigin = origin.replace(/\/$/, '');
+  return `${cleanOrigin}/auth/callback?next=${encodeURIComponent(path)}`;
+}
+
 export default function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -13,12 +20,10 @@ export default function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const next = searchParams.get("next") ?? "/dashboard";
 
-  // Clear URL error params on mount to prevent loops
   useEffect(() => {
     const urlError = searchParams.get("error");
     if (urlError) {
       setError(decodeURIComponent(urlError));
-      // Clean the URL
       const cleanUrl = window.location.pathname + (next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : "");
       window.history.replaceState({}, "", cleanUrl);
     }
@@ -31,16 +36,13 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      
-      // IMPORTANT: Use the exact origin, no trailing slash
-      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const redirectTo = getRedirectUrl(next);
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: { 
           redirectTo,
-          // Skip the browser popup and do a full redirect
           skipBrowserRedirect: false,
         },
       });
@@ -53,7 +55,6 @@ export default function LoginContent() {
       }
 
       if (data?.url) {
-        // Use replace to prevent back-button from hitting the error state again
         window.location.replace(data.url);
       }
     } catch (err: any) {
@@ -73,7 +74,7 @@ export default function LoginContent() {
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          emailRedirectTo: getRedirectUrl(next),
         },
       });
 
