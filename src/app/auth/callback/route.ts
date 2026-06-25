@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // The response we'll redirect with
   let response = NextResponse.redirect(`${request.nextUrl.origin}${next}`);
 
   const supabase = createServerClient(
@@ -28,11 +29,7 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, {
-              ...options,
-              sameSite: "none",
-              secure: true,
-            });
+            response.cookies.set(name, value, options);
           });
         },
       },
@@ -51,31 +48,18 @@ export async function GET(request: NextRequest) {
 
     console.log("[AUTH CALLBACK] Exchange success! User:", data?.user?.email ?? "no email");
 
-    // Check if user has a profile (has completed onboarding)
+    // Check if user has completed onboarding
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, company_name, role")
+      .select("full_name")
       .eq("id", data.user!.id)
       .maybeSingle();
 
-    // If coming from onboarding (next=/onboarding), save the profile data
-    if (next === "/onboarding" && data.user) {
-      // Try to get onboarding data from query params (if passed through)
-      // The onboarding page will handle sessionStorage → profile creation
-      // For now, just redirect to onboarding page with session set
-      response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
-      // Re-apply session cookies
-      const { data: sessionData } = await supabase.auth.getSession();
-      return response;
-    }
-
-    // If no profile exists, redirect to onboarding
     if (!profile?.full_name) {
       response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
       return response;
     }
 
-    // Otherwise go to the requested next page or dashboard
     return response;
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
