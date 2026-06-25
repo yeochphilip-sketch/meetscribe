@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/client";
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -17,20 +17,7 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          auth: {
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: true,
-            flowType: "pkce",
-            storage: typeof window !== "undefined" ? window.localStorage : undefined,
-          },
-        }
-      );
-
+      const supabase = createClient();
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -67,20 +54,7 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          auth: {
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: true,
-            flowType: "pkce",
-            storage: typeof window !== "undefined" ? window.localStorage : undefined,
-          },
-        }
-      );
-
+      const supabase = createClient();
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {

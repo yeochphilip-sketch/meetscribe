@@ -26,14 +26,31 @@ export const createClient = () =>
         set(name: string, value: string, options: any) {
           let cookieStr = `${name}=${encodeURIComponent(value)}`;
           cookieStr += `; Path=/`;
-          if (options?.maxAge) cookieStr += `; Max-Age=${options.maxAge}`;
-          if (options?.expires) cookieStr += `; Expires=${options.expires.toUTCString()}`;
-          if (options?.domain) cookieStr += `; Domain=${options.domain}`;
           
-          // For PKCE verifier: SameSite=None + Secure + Partitioned (CHIPS)
-          // This is required for cross-site redirects in modern Chrome/Edge
+          if (options?.maxAge !== undefined) {
+            cookieStr += `; Max-Age=${options.maxAge}`;
+          }
+          
+          if (options?.expires) {
+            let expiresStr: string;
+            if (options.expires instanceof Date) {
+              expiresStr = options.expires.toUTCString();
+            } else if (typeof options.expires === "number") {
+              expiresStr = new Date(options.expires).toUTCString();
+            } else {
+              expiresStr = String(options.expires);
+            }
+            cookieStr += `; Expires=${expiresStr}`;
+          }
+          
+          if (options?.domain) {
+            cookieStr += `; Domain=${options.domain}`;
+          }
+          
+          // CRITICAL: Force SameSite=None; Secure for PKCE verifier cookies
+          // so they survive cross-site redirects from OAuth providers
           if (name.includes("code-verifier")) {
-            cookieStr += "; SameSite=None; Secure; Partitioned";
+            cookieStr += "; SameSite=None; Secure";
           } else {
             cookieStr += `; SameSite=${options?.sameSite || "Lax"}`;
             if (options?.secure) cookieStr += "; Secure";
