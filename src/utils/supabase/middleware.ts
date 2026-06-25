@@ -4,15 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   console.log("[MIDDLEWARE] Path:", request.nextUrl.pathname);
 
-  // Auth callback: pass through with cookies intact, but still create response
-  // so Supabase can read/write cookies properly
+  // Auth callback: pass through with cookies intact
   if (request.nextUrl.pathname.startsWith("/auth/callback")) {
     console.log("[MIDDLEWARE] Auth callback - processing with cookie passthrough");
     
     let response = NextResponse.next({
-      request: {
-        headers: request.headers,
-      },
+      request: { headers: request.headers },
     });
 
     const supabase = createServerClient(
@@ -20,9 +17,7 @@ export async function updateSession(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
+          getAll() { return request.cookies.getAll(); },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
               request.cookies.set(name, value);
@@ -37,14 +32,11 @@ export async function updateSession(request: NextRequest) {
       }
     );
 
-    // Just let the callback route handle the exchange
     return response;
   }
 
   let supabaseResponse = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   });
 
   const supabase = createServerClient(
@@ -52,17 +44,13 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
           });
           supabaseResponse = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           });
           cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, {
@@ -77,10 +65,9 @@ export async function updateSession(request: NextRequest) {
   );
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
+    // Pages that require authentication
     const authRequiredPaths = [
       "/dashboard",
       "/plan",
@@ -100,12 +87,12 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const authPages = ["/login", "/onboarding"];
-    const isAuthPage = authPages.some(
-      (path) => request.nextUrl.pathname === path
-    );
+    // Auth pages: login should redirect authenticated users away
+    // Onboarding is now a pre-auth page, so DON'T redirect authenticated users away
+    // (they might be coming back from OAuth callback)
+    const isLoginPage = request.nextUrl.pathname === "/login";
 
-    if (isAuthPage && user) {
+    if (isLoginPage && user) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

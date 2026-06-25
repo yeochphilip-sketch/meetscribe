@@ -20,8 +20,6 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      console.log("[LOGIN] Supabase client created");
-
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
@@ -36,9 +34,6 @@ export default function LoginContent() {
         console.error("[LOGIN] OAuth error:", oauthError.message);
         throw oauthError;
       }
-
-      console.log("[LOGIN] OAuth initiated, provider URL:", data?.url);
-      console.log("[LOGIN] Cookies before redirect:", document.cookie.split("; ").filter(Boolean).map(c => c.split("=")[0]));
 
       if (data?.url) {
         window.location.href = data.url;
@@ -57,8 +52,6 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      console.log("[LOGIN] Sending magic link to:", email);
-
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
@@ -67,7 +60,6 @@ export default function LoginContent() {
       });
 
       if (emailError) throw emailError;
-      console.log("[LOGIN] Magic link sent successfully");
       setEmailSent(true);
     } catch (err: any) {
       console.error("[LOGIN] Email sign-in error:", err.message);
@@ -104,8 +96,8 @@ export default function LoginContent() {
     <div className="min-h-screen bg-black flex items-center justify-center px-4">
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-white mb-2">Welcome to MeetScribe</h2>
-          <p className="text-gray-400">AI-powered meeting notes for sales teams</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Welcome back</h2>
+          <p className="text-gray-400">Sign in to your MeetScribe account</p>
         </div>
 
         {error && (
@@ -178,6 +170,13 @@ export default function LoginContent() {
             Continue with GitHub
           </button>
         </div>
+
+        <p className="mt-6 text-center text-sm text-gray-500">
+          New to MeetScribe?{" "}
+          <a href="/onboarding" className="text-indigo-400 hover:text-indigo-300">
+            Get started free
+          </a>
+        </p>
       </div>
     </div>
   );

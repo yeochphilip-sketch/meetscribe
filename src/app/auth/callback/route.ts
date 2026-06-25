@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Create response first so we can set cookies on it
   let response = NextResponse.redirect(`${request.nextUrl.origin}${next}`);
 
   const supabase = createServerClient(
@@ -52,24 +51,31 @@ export async function GET(request: NextRequest) {
 
     console.log("[AUTH CALLBACK] Exchange success! User:", data?.user?.email ?? "no email");
 
-    // Check if user has completed onboarding
+    // Check if user has a profile (has completed onboarding)
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, company_name, role")
       .eq("id", data.user!.id)
       .maybeSingle();
 
-    // If no profile, redirect to onboarding instead
-    if (!profile?.full_name) {
+    // If coming from onboarding (next=/onboarding), save the profile data
+    if (next === "/onboarding" && data.user) {
+      // Try to get onboarding data from query params (if passed through)
+      // The onboarding page will handle sessionStorage → profile creation
+      // For now, just redirect to onboarding page with session set
       response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
-      // Re-apply session cookies to the new response
+      // Re-apply session cookies
       const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        // Session is already in cookies from exchangeCodeForSession
-      }
       return response;
     }
 
+    // If no profile exists, redirect to onboarding
+    if (!profile?.full_name) {
+      response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
+      return response;
+    }
+
+    // Otherwise go to the requested next page or dashboard
     return response;
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
