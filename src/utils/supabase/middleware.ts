@@ -5,7 +5,6 @@ export async function updateSession(request: NextRequest) {
   console.log("[MIDDLEWARE] Path:", request.nextUrl.pathname);
 
   // Auth callback: pass through completely untouched
-  // The callback route will handle its own Supabase client
   if (request.nextUrl.pathname.startsWith("/auth/callback")) {
     console.log("[MIDDLEWARE] Auth callback - passing through");
     return NextResponse.next({
@@ -43,6 +42,7 @@ export async function updateSession(request: NextRequest) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
+    // Pages that require authentication
     const authRequiredPaths = [
       "/dashboard",
       "/plan",
@@ -62,6 +62,8 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // Only redirect away from /login if authenticated
+    // /onboarding is allowed for both authenticated and unauthenticated users
     const isLoginPage = request.nextUrl.pathname === "/login";
 
     if (isLoginPage && user) {

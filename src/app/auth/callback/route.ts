@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
@@ -12,12 +12,12 @@ export async function GET(request: NextRequest) {
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
     return NextResponse.redirect(
-      `${request.nextUrl.origin}/login?error=no_code`
+      `${origin}/login?error=no_code`
     );
   }
 
-  // The response we'll redirect with
-  let response = NextResponse.redirect(`${request.nextUrl.origin}${next}`);
+  // Create a temporary response for cookie operations during exchange
+  let exchangeResponse = NextResponse.next();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
+            exchangeResponse.cookies.set(name, value, options);
           });
         },
       },
@@ -42,12 +42,13 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error("[AUTH CALLBACK] Exchange error:", error.message);
       return NextResponse.redirect(
-        `${request.nextUrl.origin}/login?error=${encodeURIComponent(error.message)}`
+        `${origin}/login?error=${encodeURIComponent(error.message)}`
       );
     }
 
     console.log("[AUTH CALLBACK] Exchange success! User:", data?.user?.email ?? "no email");
 
+    // Now create the final redirect response
     // Check if user has completed onboarding
     const { data: profile } = await supabase
       .from("profiles")
@@ -55,16 +56,30 @@ export async function GET(request: NextRequest) {
       .eq("id", data.user!.id)
       .maybeSingle();
 
+    let redirectUrl = `${origin}${next}`;
     if (!profile?.full_name) {
-      response = NextResponse.redirect(`${request.nextUrl.origin}/onboarding`);
-      return response;
+      redirectUrl = `${origin}/onboarding`;
     }
 
-    return response;
+    const finalResponse = NextResponse.redirect(redirectUrl);
+    
+    // Copy all cookies from exchangeResponse to finalResponse
+    exchangeResponse.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie.name, cookie.value, {
+        path: cookie.path,
+        maxAge: cookie.maxAge,
+        domain: cookie.domain,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite as "strict" | "lax" | "none" | undefined,
+      });
+    });
+
+    return finalResponse;
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
     return NextResponse.redirect(
-      `${request.nextUrl.origin}/login?error=unexpected`
+      `${origin}/login?error=unexpected`
     );
   }
 }

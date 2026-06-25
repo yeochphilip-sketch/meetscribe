@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
@@ -13,6 +13,17 @@ export default function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const next = searchParams.get("next") ?? "/dashboard";
 
+  // Clear URL error params on mount to prevent loops
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError) {
+      setError(decodeURIComponent(urlError));
+      // Clean the URL
+      const cleanUrl = window.location.pathname + (next !== "/dashboard" ? `?next=${encodeURIComponent(next)}` : "");
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }, [searchParams, next]);
+
   const handleOAuthSignIn = async (provider: "google" | "github") => {
     console.log("[LOGIN] OAuth sign-in clicked:", provider);
     setIsLoading(provider);
@@ -20,12 +31,18 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
+      
+      // IMPORTANT: Use the exact origin, no trailing slash
       const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo },
+        options: { 
+          redirectTo,
+          // Skip the browser popup and do a full redirect
+          skipBrowserRedirect: false,
+        },
       });
 
       console.log("[LOGIN] signInWithOAuth result:", { data: !!data, error: !!oauthError });
@@ -36,7 +53,8 @@ export default function LoginContent() {
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        // Use replace to prevent back-button from hitting the error state again
+        window.location.replace(data.url);
       }
     } catch (err: any) {
       console.error("[LOGIN] Unexpected error:", err.message);
