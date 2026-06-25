@@ -17,7 +17,10 @@ function LoginForm() {
     setError(null);
 
     try {
+      console.log("[LOGIN] Creating Supabase client...");
       const supabase = createClient();
+      
+      console.log("[LOGIN] Calling signInWithOAuth for provider:", provider);
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -32,17 +35,25 @@ function LoginForm() {
         },
       });
 
+      console.log("[LOGIN] signInWithOAuth result - data:", !!data, "error:", !!oauthError);
+
       if (oauthError) {
+        console.error("[LOGIN] OAuth error:", oauthError.message);
         throw oauthError;
       }
 
       if (data?.url) {
+        console.log("[LOGIN] Redirecting to:", data.url.substring(0, 100));
+        
+        // Check cookies before redirect
+        console.log("[LOGIN] All cookies before redirect:", document.cookie.split("; ").map(c => c.split("=")[0]));
+        
         window.location.href = data.url;
       } else {
         throw new Error("No OAuth URL returned");
       }
     } catch (err: any) {
-      console.error(`${provider} sign in error:`, err);
+      console.error("[LOGIN] Sign in error:", err.message);
       setError(err.message || `Failed to sign in with ${provider}. Please try again.`);
       setIsLoading(null);
     }
