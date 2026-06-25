@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -16,22 +17,29 @@ function LoginForm() {
     setError(null);
 
     try {
-      const resp = await fetch("/api/auth/oauth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, next }),
+      const supabase = createClient();
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          queryParams:
+            provider === "google"
+              ? {
+                  access_type: "offline",
+                  prompt: "consent",
+                }
+              : undefined,
+        },
       });
 
-      const data = await resp.json();
-
-      if (!resp.ok || data.error) {
-        throw new Error(data.error || "Failed to initiate OAuth");
+      if (oauthError) {
+        throw oauthError;
       }
 
-      if (data.url) {
+      if (data?.url) {
         window.location.href = data.url;
       } else {
-        throw new Error("No OAuth URL returned");
+        throw new Error("No OAuth URL returned from Supabase");
       }
     } catch (err: any) {
       console.error(`${provider} sign in error:`, err);
@@ -46,16 +54,16 @@ function LoginForm() {
     setError(null);
 
     try {
-      const resp = await fetch("/api/auth/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, next }),
+      const supabase = createClient();
+      const { error: emailError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
       });
 
-      const data = await resp.json();
-
-      if (!resp.ok || data.error) {
-        throw new Error(data.error || "Failed to send magic link");
+      if (emailError) {
+        throw emailError;
       }
 
       setEmailSent(true);
