@@ -19,7 +19,7 @@ export default function LoginContent() {
     }
   }, [searchParams]);
 
-  const handleOAuthSignIn = async (provider: "google" | "github") => {
+  const handleOAuthSignIn = async (provider: "google" | "azure" | "github") => {
     console.log("[LOGIN] OAuth sign-in clicked:", provider);
     setIsLoading(provider);
     setError(null);
@@ -161,6 +161,21 @@ export default function LoginContent() {
               </svg>
             )}
             Continue with Google
+          </button>
+
+          <button
+            onClick={() => handleOAuthSignIn("azure")}
+            disabled={!!isLoading}
+            className="w-full py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-medium transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading === "azure" ? (
+              <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M5.483 0v11.293H0V5.483h5.483zm6.517 0v11.293h5.483V0H12zm6.517 11.293V24h5.483v-5.483h-5.483zm-6.517 0V24h5.483v-5.483H12zM5.483 11.293V24h5.483v-5.483H5.483z"/>
+              </svg>
+            )}
+            Continue with Microsoft
           </button>
 
           <button
