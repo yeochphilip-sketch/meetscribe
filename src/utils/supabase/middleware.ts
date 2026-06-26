@@ -3,7 +3,6 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
   // Auth callback: pass through completely untouched
-  // The callback route will handle its own Supabase client
   if (request.nextUrl.pathname.startsWith("/auth/callback")) {
     console.log("[MIDDLEWARE] Auth callback - passing through");
     return NextResponse.next({

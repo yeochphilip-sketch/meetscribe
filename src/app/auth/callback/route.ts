@@ -21,8 +21,6 @@ export async function GET(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // We need to apply cookies to a response, but we don't have one yet
-          // Store them temporarily
           // @ts-ignore
           request._pendingCookies = request._pendingCookies || [];
           // @ts-ignore

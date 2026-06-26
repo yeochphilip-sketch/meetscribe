@@ -62,7 +62,7 @@ export default function OnboardingContent() {
       }
 
       if (data?.url) {
-        window.location.assign(data.url);
+        window.location.href = data.url;
       }
     } catch (err: any) {
       setMessage("Something went wrong. Please try again.");

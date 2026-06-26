@@ -26,8 +26,6 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      
-      // Use the exact origin - no trailing slash
       const redirectTo = `${window.location.origin}/auth/callback`;
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
@@ -46,10 +44,7 @@ export default function LoginContent() {
       }
 
       if (data?.url) {
-        // Use window.location.assign for full page navigation
-        window.location.assign(data.url);
-      } else {
-        throw new Error("No redirect URL returned");
+        window.location.href = data.url;
       }
     } catch (err: any) {
       console.error("[LOGIN] Unexpected error:", err.message);
