@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { ratelimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,15 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limit check
+    const { success, limit, remaining, reset } = await ratelimit.limit(user.id);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded", limit, remaining, reset },
+        { status: 429 }
+      );
     }
 
     const formData = await request.formData();
@@ -21,6 +31,15 @@ export async function POST(request: NextRequest) {
     const maxSize = 25 * 1024 * 1024; // 25MB
     if (audioFile.size > maxSize) {
       return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 400 });
+    }
+
+    // Check file type
+    const allowedTypes = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/webm", "audio/ogg", "audio/mp4", "audio/m4a"];
+    if (!allowedTypes.includes(audioFile.type)) {
+      return NextResponse.json(
+        { error: `Unsupported file type: ${audioFile.type}. Please upload MP3, WAV, WEBM, OGG, or M4A.` },
+        { status: 400 }
+      );
     }
 
     const groqFormData = new FormData();
@@ -38,16 +57,44 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      console.error("Groq API error:", error);
-      return NextResponse.json({ error: "Transcription failed" }, { status: 500 });
+      const errorText = await response.text();
+      console.error("Groq API error:", errorText);
+
+      if (response.status === 429) {
+        return NextResponse.json(
+          { error: "Transcription service is busy. Please try again in a moment." },
+          { status: 429 }
+        );
+      }
+
+      if (response.status === 413) {
+        return NextResponse.json(
+          { error: "Audio file too large for processing." },
+          { status: 413 }
+        );
+      }
+
+      return NextResponse.json(
+        { error: "Transcription failed. Please try again." },
+        { status: 500 }
+      );
     }
 
     const transcript = await response.text();
 
-    return NextResponse.json({ transcript });
-  } catch (error) {
+    return NextResponse.json(
+      { transcript },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=3600",
+        },
+      }
+    );
+  } catch (error: any) {
     console.error("Transcription error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error", details: error.message },
+      { status: 500 }
+    );
   }
 }

@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
     return NextResponse.redirect(`${origin}/login?error=no_code`);
-  }
+n  }
+
+  // Create response early so we can set cookies on it
+  let response = NextResponse.redirect(`${origin}/dashboard`);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,10 +24,9 @@ export async function GET(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // @ts-ignore
-          request._pendingCookies = request._pendingCookies || [];
-          // @ts-ignore
-          request._pendingCookies.push(...cookiesToSet);
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
         },
       },
     }
@@ -50,13 +52,14 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     const redirectPath = profile?.full_name ? "/dashboard" : "/onboarding";
-    const response = NextResponse.redirect(`${origin}${redirectPath}`);
-
-    // Apply all pending cookies
-    // @ts-ignore
-    const pendingCookies = request._pendingCookies || [];
-    pendingCookies.forEach(({ name, value, options }: any) => {
-      response.cookies.set(name, value, options);
+    
+    // Update redirect URL while preserving cookies
+    response = NextResponse.redirect(`${origin}${redirectPath}`);
+    
+    // Re-apply cookies to the new response
+    const allCookies = request.cookies.getAll();
+    allCookies.forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value);
     });
 
     return response;
