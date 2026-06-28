@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   if (!code) {
     console.error("[AUTH CALLBACK] No code in URL");
     return NextResponse.redirect(`${origin}/login?error=no_code`);
-n  }
+  }
 
   // Create response early so we can set cookies on it
   let response = NextResponse.redirect(`${origin}/dashboard`);
