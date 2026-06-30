@@ -4,11 +4,6 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export const metadata = {
-  title: "New Deal | SalesAI",
-  description: "Record or upload a sales call",
-};
-
 export default function NewDealPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,7 +15,6 @@ export default function NewDealPage() {
   const [contactName, setContactName] = useState("");
   const [dealValue, setDealValue] = useState("");
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
 
   const startRecording = async () => {
     try {
@@ -40,7 +34,6 @@ export default function NewDealPage() {
 
       recorder.start();
       setMediaRecorder(recorder);
-      setAudioChunks(chunks);
       setIsRecording(true);
     } catch (err) {
       alert("Could not access microphone. Please check permissions.");
@@ -67,7 +60,6 @@ export default function NewDealPage() {
     setIsProcessing(true);
 
     try {
-      // 1. Create deal
       const dealRes = await fetch("/api/v1/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,7 +77,6 @@ export default function NewDealPage() {
 
       const dealId = dealData.deal.id;
 
-      // 2. Upload audio for transcription
       const formData = new FormData();
       formData.append("audio", blob, filename);
       formData.append("deal_id", dealId);
@@ -98,7 +89,6 @@ export default function NewDealPage() {
       const transcribeData = await transcribeRes.json();
       if (!transcribeRes.ok) throw new Error(transcribeData.error);
 
-      // 3. Process with AI
       const processRes = await fetch("/api/v1/deals/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -131,7 +121,6 @@ export default function NewDealPage() {
         <h1 className="text-3xl font-bold text-white mt-4 mb-2">New Deal</h1>
         <p className="text-gray-400 mb-8">Record or upload a sales call to generate intelligence</p>
 
-        {/* Deal Info */}
         <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-5 mb-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Deal Title *</label>
@@ -177,7 +166,6 @@ export default function NewDealPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-6">
           {[
             { id: "upload", label: "Upload Audio", icon: "📁" },
@@ -195,7 +183,6 @@ export default function NewDealPage() {
           ))}
         </div>
 
-        {/* Upload Tab */}
         {activeTab === "upload" && (
           <div
             onClick={() => fileInputRef.current?.click()}
@@ -208,7 +195,6 @@ export default function NewDealPage() {
           </div>
         )}
 
-        {/* Record Tab */}
         {activeTab === "record" && (
           <div className="border border-gray-700 rounded-xl p-12 text-center">
             {!isRecording ? (
@@ -237,7 +223,6 @@ export default function NewDealPage() {
           </div>
         )}
 
-        {/* Calendar Tab */}
         {activeTab === "calendar" && (
           <div className="border border-gray-700 rounded-xl p-8 text-center">
             <div className="text-4xl mb-3">📅</div>
@@ -252,7 +237,6 @@ export default function NewDealPage() {
           </div>
         )}
 
-        {/* Processing Overlay */}
         {isProcessing && (
           <div className="fixed inset-0 bg-gray-900/90 flex items-center justify-center z-50">
             <div className="text-center">
