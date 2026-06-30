@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       const repCoaching = coaching.filter((c: any) => c.user_id === uid);
       const member = members?.find((m: any) => m.user_id === uid);
       
-      // profiles is returned as an array from Supabase join
+      // profiles is returned as an array from Supabase foreign table join
       const profiles = member?.profiles as Array<{ full_name?: string; email?: string }> | undefined;
       const profile = profiles?.[0];
       const name = profile?.full_name || profile?.email || "Unknown";
@@ -76,9 +76,9 @@ export async function GET(request: Request) {
       total_calls: deals?.length || 0,
       team_avg_score: teamAvgScore,
       rep_stats: repStats,
-      top_performer: repStats[0] || null,
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: "Failed to fetch team analytics", details: error.message }, { status: 500 });
+  } catch (err: any) {
+    console.error("Team analytics error:", err);
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
