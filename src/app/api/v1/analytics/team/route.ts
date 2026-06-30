@@ -45,9 +45,15 @@ export async function GET(request: Request) {
       const repDeals = deals?.filter((d: any) => d.user_id === uid) || [];
       const repCoaching = coaching.filter((c: any) => c.user_id === uid);
       const member = members?.find((m: any) => m.user_id === uid);
+      
+      // profiles is returned as an array from Supabase join
+      const profiles = member?.profiles as Array<{ full_name?: string; email?: string }> | undefined;
+      const profile = profiles?.[0];
+      const name = profile?.full_name || profile?.email || "Unknown";
+
       return {
         user_id: uid,
-        name: member?.profiles?.full_name || member?.profiles?.email || "Unknown",
+        name,
         role: member?.role,
         calls: repDeals.length,
         deals_won: repDeals.filter((d: any) => d.status === "won").length,
