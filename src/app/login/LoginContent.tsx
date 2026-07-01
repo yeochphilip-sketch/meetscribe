@@ -19,6 +19,11 @@ export default function LoginContent() {
     }
   }, [searchParams]);
 
+  const getRedirectUrl = () => {
+    // Use the current origin so it works on both domains during transition
+    return `${window.location.origin}/auth/callback`;
+  };
+
   const handleOAuthSignIn = async (provider: "google") => {
     console.log("[LOGIN] OAuth sign-in clicked:", provider);
     setIsLoading(provider);
@@ -26,7 +31,7 @@ export default function LoginContent() {
 
     try {
       const supabase = createClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const redirectTo = getRedirectUrl();
       console.log("[LOGIN] Redirect URL:", redirectTo);
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -63,7 +68,7 @@ export default function LoginContent() {
       const { error: emailError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: getRedirectUrl(),
         },
       });
 
