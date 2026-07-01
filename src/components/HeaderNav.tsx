@@ -27,15 +27,12 @@ export default function HeaderNav() {
       setIsLoggedIn(!!user);
       setIsLoading(false);
     });
-
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setIsLoggedIn(!!session?.user);
     });
-
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Don't show header on auth pages or when not logged in
   const isAuthPage = authPages.some((page) => pathname?.startsWith(page));
   if (isAuthPage || !isLoggedIn || isLoading) return null;
 
@@ -46,21 +43,18 @@ export default function HeaderNav() {
           <Link href="/dashboard" className="text-lg font-bold text-green-400">SalesAI</Link>
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
+              <Link key={item.href} href={item.href} prefetch={true}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   pathname === item.href || pathname?.startsWith(item.href + "/")
-                    ? "text-white bg-gray-800"
-                    : "text-gray-400 hover:text-white hover:bg-gray-800"
-                }`}
-              >
+                    ? "text-white bg-gray-800" : "text-gray-400 hover:text-white hover:bg-gray-800"
+                }`}>
                 {item.label}
               </Link>
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/deals/new" className="px-3 py-1.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg text-sm font-medium hover:bg-green-500/30 transition-colors">
+            <Link href="/deals/new" prefetch={true}
+              className="px-3 py-1.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg text-sm font-medium hover:bg-green-500/30 transition-colors">
               + New Deal
             </Link>
           </div>
