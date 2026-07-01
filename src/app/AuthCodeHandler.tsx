@@ -11,9 +11,9 @@ export default function AuthCodeHandler() {
     
     if (code) {
       // Auth code landed on / instead of /auth/callback
-      // Forward to the proper callback route, preserving the code
+      // Use window.location.href (full navigation) so cookies are sent
       const currentParams = new URLSearchParams(window.location.search);
-      window.location.replace(`/auth/callback?${currentParams.toString()}`);
+      window.location.href = `/auth/callback?${currentParams.toString()}`;
     }
   }, [searchParams]);
 

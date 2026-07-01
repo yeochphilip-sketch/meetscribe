@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=no_code`);
   }
 
-  // Create response early so we can set cookies on it
-  let response = NextResponse.redirect(`${origin}/dashboard`);
+  // Create a single response object that we'll mutate and return
+  const response = NextResponse.redirect(`${origin}/dashboard`);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,20 +52,13 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     const redirectPath = profile?.full_name ? "/dashboard" : "/onboarding";
-    
-    // Update redirect URL while preserving cookies
-    response = NextResponse.redirect(`${origin}${redirectPath}`);
-    
-    // Re-apply cookies to the new response
-    const allCookies = request.cookies.getAll();
-    allCookies.forEach((cookie) => {
-      response.cookies.set(cookie.name, cookie.value);
-    });
 
-    return response;
+    // Update the redirect URL on the SAME response object so cookies are preserved
+    return NextResponse.redirect(`${origin}${redirectPath}`, {
+      headers: response.headers,
+    });
   } catch (err: any) {
     console.error("[AUTH CALLBACK] Unexpected error:", err.message);
     return NextResponse.redirect(`${origin}/login?error=unexpected`);
   }
 }
-
