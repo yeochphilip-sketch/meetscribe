@@ -6,6 +6,7 @@ import {
   ArrowRight, Check, Menu, X,
 } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
 
 function GradientBackground() {
   return (
@@ -20,10 +21,17 @@ function GradientBackground() {
 function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
+
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -57,65 +65,140 @@ function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign in</Link>
-            <Link href="/onboarding" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25">
-              <span className="relative z-10">Get started free</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </Link>
+            {isLoggedIn ? (
+              <Link href="/dashboard" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25">
+                Go to Dashboard
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors">Sign in</Link>
+                <Link href="/onboarding" className="relative group overflow-hidden rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-indigo-500/25">
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
 
-          <button className="md:hidden text-gray-400 hover:text-white" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 text-gray-400 hover:text-white">
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
-      </div>
 
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-[#0a0a0f]/95 backdrop-blur-xl border-b border-white/5">
-          <div className="px-4 py-4 space-y-3">
-            {["features", "how-it-works", "pricing", "testimonials"].map((id) => (
-              <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left text-gray-400 hover:text-white py-2 capitalize">{id.replace("-", " ")}</button>
-            ))}
-            <Link href="/onboarding" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2.5 text-sm font-medium text-white">Get started free</Link>
+        {mobileMenuOpen && (
+          <div className="md:hidden py-4 border-t border-white/5 space-y-3">
+            {["Features", "How it works", "Pricing", "Testimonials"].map((label) => {
+              const id = label.toLowerCase().replace(/ /g, "-");
+              return (
+                <button key={id} onClick={() => scrollToSection(id)} className="block w-full text-left px-2 py-2 text-sm text-gray-400 hover:text-white">
+                  {label}
+                </button>
+              );
+            })}
+            <div className="pt-3 border-t border-white/5 space-y-2">
+              {isLoggedIn ? (
+                <Link href="/dashboard" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-medium text-white">
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="block w-full text-center text-sm text-gray-300 hover:text-white py-2">Sign in</Link>
+                  <Link href="/onboarding" className="block w-full text-center rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-medium text-white">Get Started</Link>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </nav>
   );
 }
 
 function HeroSection() {
-  const [email, setEmail] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
+
   return (
-    <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+    <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm text-indigo-300 mb-8 backdrop-blur-sm">
-            <Sparkles className="w-4 h-4" />
-            <span>AI-Powered Meeting Intelligence</span>
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium">
+              <Sparkles className="w-4 h-4" />
+              AI-Powered Meeting Assistant
+            </div>
+            <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight">
+              Transform Your <br />
+              Meetings with <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">AI-Powered</span> Transcripts
+            </h1>
+            <p className="text-lg text-gray-400 leading-relaxed max-w-xl">
+              Transcribe, summarize, and capture key insights from every meeting effortlessly and accurately.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              {isLoggedIn ? (
+                <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-4 text-white font-semibold transition-all hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-0.5">
+                  Go to Dashboard
+                  <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                </Link>
+              ) : (
+                <>
+                  <Link href="/onboarding" className="group inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-4 text-white font-semibold transition-all hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-0.5">
+                    Get Started for Free
+                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                  <button onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-8 py-4 text-white font-semibold hover:bg-white/5 transition-all">
+                    See How It Works
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold text-white mb-6 leading-tight">
-            Turn sales meetings into <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">closed deals</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            MeetScribe automatically transcribes, summarizes, and extracts action items from your sales calls. Stop taking notes, start closing.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/onboarding" className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-4 text-base font-medium text-white transition-all hover:shadow-xl hover:shadow-indigo-500/25">
-              <span className="relative z-10 flex items-center gap-2">
-                Get started free
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </span>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </Link>
-            <button onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-xl border border-white/10 px-8 py-4 text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white transition-all">
-              See how it works
-            </button>
-          </div>
-          <div className="mt-8 flex items-center justify-center gap-6 text-sm text-gray-500">
-            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-green-400" /> No credit card</span>
-            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-green-400" /> 14-day free trial</span>
-            <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-green-400" /> Cancel anytime</span>
+          <div className="relative">
+            <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-[#0f0f1a] shadow-2xl shadow-indigo-500/10">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-[#0a0a12]">
+                <div className="w-3 h-3 rounded-full bg-red-500/80" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
+                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+                <span className="ml-2 text-xs text-gray-500">Meeting Transcript</span>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-medium text-indigo-300">JD</div>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-300 mb-1"><span className="text-indigo-400 font-medium">John Doe</span> <span className="text-gray-600">10:02 AM</span></div>
+                    <p className="text-sm text-gray-400">Hey Sarah, thanks for joining. Let&apos;s discuss the Q3 roadmap and priorities for the mobile app redesign.</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-medium text-purple-300">SM</div>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-300 mb-1"><span className="text-purple-400 font-medium">Sarah Miller</span> <span className="text-gray-600">10:03 AM</span></div>
+                    <p className="text-sm text-gray-400">Sure, let&apos;s prioritize the mobile app. What&apos;s the timeline looking like?</p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-medium text-indigo-300">JD</div>
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-300 mb-1"><span className="text-indigo-400 font-medium">John Doe</span> <span className="text-gray-600">10:04 AM</span></div>
+                    <p className="text-sm text-gray-400">Can you prepare a pricing analysis? We need to present to the board next week.</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm font-medium text-indigo-300">AI Summary</span>
+                  </div>
+                  <p className="text-sm text-gray-400">Discussed Q3 roadmap, prioritized mobile app redesign with mockups due Friday, and requested pricing analysis for next meeting.</p>
+                </div>
+              </div>
+            </div>
+            <div className="absolute -top-4 -right-4 w-24 h-24 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full blur-2xl" />
+            <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-2xl" />
           </div>
         </div>
       </div>
@@ -123,31 +206,67 @@ function HeroSection() {
   );
 }
 
-function FeaturesSection() {
-  const features = [
-    { icon: Mic, title: "AI Transcription", desc: "Real-time speech-to-text with 95%+ accuracy. Supports multiple speakers and languages." },
-    { icon: FileText, title: "Smart Summaries", desc: "Automatically generated meeting summaries with key points, decisions, and next steps." },
-    { icon: Zap, title: "Action Items", desc: "AI extracts tasks and deadlines, assigns owners, and syncs to your CRM." },
-    { icon: Shield, title: "Enterprise Security", desc: "SOC 2 compliant, end-to-end encryption, and GDPR-ready data handling." },
-    { icon: Users, title: "Team Collaboration", desc: "Share notes, comment on highlights, and keep everyone aligned." },
-    { icon: Sparkles, title: "CRM Integration", desc: "Native integrations with Salesforce, HubSpot, and Pipedrive." },
-  ];
+const features = [
+  {
+    icon: Mic,
+    title: "Real-time Transcription",
+    description: "Instantly convert speech to text with high accuracy across multiple speakers.",
+    color: "text-indigo-400",
+    bg: "bg-indigo-500/10",
+  },
+  {
+    icon: Users,
+    title: "Speaker Identification",
+    description: "Automatically detect and label different speakers in your meetings.",
+    color: "text-purple-400",
+    bg: "bg-purple-500/10",
+  },
+  {
+    icon: FileText,
+    title: "AI Meeting Minutes",
+    description: "Generate concise meeting summaries and action items with a single click.",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10",
+  },
+  {
+    icon: Zap,
+    title: "Smart Action Items",
+    description: "Automatically extract and assign action items with deadlines.",
+    color: "text-green-400",
+    bg: "bg-green-500/10",
+  },
+  {
+    icon: Shield,
+    title: "Enterprise Security",
+    description: "Bank-grade encryption and SOC 2 compliance for your meeting data.",
+    color: "text-orange-400",
+    bg: "bg-orange-500/10",
+  },
+  {
+    icon: Sparkles,
+    title: "CRM Integration",
+    description: "Sync meeting insights directly to Salesforce, HubSpot, and more.",
+    color: "text-pink-400",
+    bg: "bg-pink-500/10",
+  },
+];
 
+function FeaturesSection() {
   return (
-    <section id="features" className="relative py-24">
+    <section id="features" className="py-20 lg:py-32 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Everything you need to win more deals</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">From transcription to CRM sync, MeetScribe handles the busywork so you can focus on selling.</p>
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">Powerful Features</h2>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">Everything you need to capture, understand, and share the valuable information from your meetings.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f, i) => (
-            <div key={i} className="group relative p-6 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.05] hover:border-indigo-500/20 transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
-                <f.icon className="w-5 h-5 text-indigo-400" />
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((feature) => (
+            <div key={feature.title} className="group relative p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] hover:border-white/10 transition-all duration-300">
+              <div className={`w-12 h-12 rounded-xl ${feature.bg} flex items-center justify-center mb-4`}>
+                <feature.icon className={`w-6 h-6 ${feature.color}`} />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
+              <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -158,24 +277,24 @@ function FeaturesSection() {
 
 function HowItWorksSection() {
   const steps = [
-    { num: "01", title: "Connect your calendar", desc: "Sync with Google Calendar or Outlook. MeetScribe joins your meetings automatically." },
-    { num: "02", title: "AI takes notes", desc: "Real-time transcription, speaker identification, and smart summarization." },
-    { num: "03", title: "Close more deals", desc: "Action items sync to your CRM. Follow-ups are automated. You focus on selling." },
+    { number: "01", title: "Paste Transcript", description: "Copy from Zoom, Google Meet, or Otter.ai and paste it in." },
+    { number: "02", title: "AI Generates Notes", description: "Summary, action items, and follow-up email in seconds." },
+    { number: "03", title: "Close More Deals", description: "Send follow-ups faster and never miss action items." },
   ];
 
   return (
-    <section id="how-it-works" className="relative py-24 border-t border-white/5">
+    <section id="how-it-works" className="py-20 lg:py-32 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">How it works</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">Three simple steps to transform your sales meetings.</p>
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">How it works</h2>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">Three simple steps to transform your sales meetings.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {steps.map((step, i) => (
-            <div key={i} className="relative">
-              <div className="text-6xl font-bold text-white/5 mb-4">{step.num}</div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {steps.map((step) => (
+            <div key={step.number} className="relative group">
+              <div className="text-6xl font-bold text-white/5 group-hover:text-white/10 transition-colors mb-4">{step.number}</div>
               <h3 className="text-xl font-semibold text-white mb-3">{step.title}</h3>
-              <p className="text-gray-400 leading-relaxed">{step.desc}</p>
+              <p className="text-gray-400">{step.description}</p>
             </div>
           ))}
         </div>
@@ -184,39 +303,75 @@ function HowItWorksSection() {
   );
 }
 
+const pricingPlans = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    description: "Perfect for trying out MeetScribe",
+    features: ["5 meetings per month", "AI summary", "Action items", "Follow-up email", "No exports", "No CRM sync"],
+    cta: "Get Started",
+    href: "/onboarding",
+    popular: false,
+  },
+  {
+    name: "Pro",
+    price: "$15",
+    period: "per month",
+    description: "For sales reps who close deals",
+    features: ["Unlimited meetings", "Everything in Free", "Export to PDF/Word", "CRM integrations", "Priority AI speed"],
+    cta: "Upgrade to Pro",
+    href: "/plan",
+    popular: true,
+  },
+];
+
 function PricingSection() {
-  const plans = [
-    { name: "Free", price: "$0", period: "forever", features: ["5 meetings/month", "Basic transcription", "Email summaries", "7-day storage"], cta: "Get started", href: "/onboarding", highlighted: false },
-    { name: "Pro", price: "$29", period: "per user/month", features: ["Unlimited meetings", "Advanced AI summaries", "CRM integration", "Action item extraction", "Unlimited storage", "Priority support"], cta: "Start free trial", href: "/onboarding", highlighted: true },
-    { name: "Team", price: "$99", period: "per user/month", features: ["Everything in Pro", "Team analytics", "Custom AI training", "SSO & SAML", "Dedicated account manager", "SLA guarantee"], cta: "Contact sales", href: "/onboarding", highlighted: false },
-  ];
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
 
   return (
-    <section id="pricing" className="relative py-24 border-t border-white/5">
+    <section id="pricing" className="py-20 lg:py-32 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, transparent pricing</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">Start free, upgrade when you need more power.</p>
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">Simple pricing</h2>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">Start free, upgrade when you need more.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {plans.map((plan, i) => (
-            <div key={i} className={`relative p-6 rounded-2xl border transition-all duration-300 ${plan.highlighted ? 'bg-gradient-to-b from-indigo-500/10 to-purple-500/10 border-indigo-500/30' : 'bg-white/[0.02] border-white/[0.06]'}`}>
-              {plan.highlighted && <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-indigo-500 text-xs font-medium text-white">Most Popular</div>}
-              <h3 className="text-lg font-semibold text-white mb-2">{plan.name}</h3>
-              <div className="flex items-baseline gap-1 mb-6">
-                <span className="text-3xl font-bold text-white">{plan.price}</span>
-                <span className="text-gray-500 text-sm">/{plan.period}</span>
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {pricingPlans.map((plan) => (
+            <div key={plan.name} className={`relative rounded-2xl p-8 ${plan.popular ? 'bg-gradient-to-b from-indigo-500/10 to-purple-500/10 border-2 border-indigo-500/30' : 'bg-white/[0.02] border border-white/5'}`}>
+              {plan.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-xs font-medium text-white">
+                  MOST POPULAR
+                </div>
+              )}
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold text-white mb-2">{plan.name}</h3>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold text-white">{plan.price}</span>
+                  <span className="text-gray-500">/{plan.period}</span>
+                </div>
+                <p className="text-gray-400 text-sm mt-2">{plan.description}</p>
               </div>
-              <ul className="space-y-3 mb-6">
-                {plan.features.map((f, j) => (
-                  <li key={j} className="flex items-start gap-2 text-sm text-gray-400">
-                    <Check className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
-                    {f}
+              <ul className="space-y-3 mb-8">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-3 text-sm text-gray-300">
+                    <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    {feature}
                   </li>
                 ))}
               </ul>
-              <Link href={plan.href} className={`block w-full text-center py-2.5 rounded-xl font-medium transition-all ${plan.highlighted ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10'}`}>
-                {plan.cta}
+              <Link
+                href={isLoggedIn && plan.name === "Pro" ? "/plan" : plan.href}
+                className={`block w-full text-center py-3 rounded-xl font-medium transition-all ${plan.popular ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-lg hover:shadow-indigo-500/25' : 'bg-white/5 text-white hover:bg-white/10 border border-white/10'}`}
+              >
+                {isLoggedIn && plan.name === "Pro" ? "Upgrade Now" : plan.cta}
               </Link>
             </div>
           ))}
@@ -228,32 +383,65 @@ function PricingSection() {
 
 function TestimonialsSection() {
   const testimonials = [
-    { quote: "MeetScribe cut our follow-up time by 80%. Our reps actually use the CRM now because the data is already there.", author: "Sarah Chen", role: "VP of Sales, TechFlow", avatar: "SC" },
-    { quote: "The AI summaries are scary good. I can review a 60-minute meeting in 2 minutes and know exactly what to do next.", author: "Marcus Johnson", role: "Enterprise AE, CloudNine", avatar: "MJ" },
-    { quote: "We evaluated 5 tools. MeetScribe had the best transcription accuracy and the simplest setup. Live in a day.", author: "Priya Patel", role: "Sales Ops, Vertex", avatar: "PP" },
+    { quote: "MeetScribe saves me 30 minutes per meeting. The action items are spot on.", author: "Alex Chen", role: "Sales Director", company: "TechCorp" },
+    { quote: "Our team closed 40% more deals after using MeetScribe for follow-ups.", author: "Maria Garcia", role: "Account Executive", company: "CloudScale" },
+    { quote: "The CRM integration is seamless. No more manual data entry.", author: "James Wilson", role: "VP Sales", company: "DataFlow" },
   ];
 
   return (
-    <section id="testimonials" className="relative py-24 border-t border-white/5">
+    <section id="testimonials" className="py-20 lg:py-32 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Loved by sales teams</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">Join hundreds of teams already closing more deals with MeetScribe.</p>
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">Loved by sales teams</h2>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">See what our customers have to say.</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((t, i) => (
-            <div key={i} className="p-6 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <p className="text-gray-300 mb-6 leading-relaxed">\"{t.quote}\"</p>
+        <div className="grid md:grid-cols-3 gap-6">
+          {testimonials.map((t) => (
+            <div key={t.author} className="p-6 rounded-2xl bg-white/[0.02] border border-white/5">
+              <p className="text-gray-300 mb-4 leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-sm font-medium\">{t.avatar}</div>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-sm font-medium text-white">
+                  {t.author.split(' ').map(n => n[0]).join('')}
+                </div>
                 <div>
-                  <div className="text-white font-medium text-sm\">{t.author}</div>
-                  <div className="text-gray-500 text-xs\">{t.role}</div>
+                  <div className="text-sm font-medium text-white">{t.author}</div>
+                  <div className="text-xs text-gray-500">{t.role}, {t.company}</div>
                 </div>
               </div>
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function CTASection() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+  }, []);
+
+  return (
+    <section className="py-20 lg:py-32 relative">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 className="text-3xl lg:text-4xl font-bold text-white mb-6">Ready to never miss a meeting moment?</h2>
+        <p className="text-gray-400 text-lg mb-8">Join sales reps who save 30 minutes per meeting.</p>
+        {isLoggedIn ? (
+          <Link href="/dashboard" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-4 text-white font-semibold transition-all hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-0.5">
+            Go to Dashboard
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        ) : (
+          <Link href="/onboarding" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-4 text-white font-semibold transition-all hover:shadow-xl hover:shadow-indigo-500/25 hover:-translate-y-0.5">
+            Get Started for Free
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        )}
       </div>
     </section>
   );
@@ -265,12 +453,19 @@ function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
               <Mic className="w-3 h-3 text-white" />
             </div>
-            <span className="text-white font-semibold\">MeetScribe</span>
+            <span className="text-sm font-medium text-gray-400">MeetScribe</span>
           </div>
-          <p className="text-gray-500 text-sm\">© 2026 MeetScribe. All rights reserved.</p>
+          <div className="flex items-center gap-6 text-sm text-gray-500">
+            <Link href="/" className="hover:text-gray-300 transition-colors">Home</Link>
+            <Link href="/login" className="hover:text-gray-300 transition-colors">Sign in</Link>
+            <Link href="/onboarding" className="hover:text-gray-300 transition-colors">Get Started</Link>
+          </div>
+          <div className="text-sm text-gray-600">
+            &copy; {new Date().getFullYear()} MeetScribe. All rights reserved.
+          </div>
         </div>
       </div>
     </footer>
@@ -279,16 +474,15 @@ function Footer() {
 
 export default function LandingPageClient() {
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#0a0a0f] text-white relative overflow-x-hidden">
       <GradientBackground />
       <Navbar />
-      <main className="relative z-10">
-        <HeroSection />
-        <FeaturesSection />
-        <HowItWorksSection />
-        <PricingSection />
-        <TestimonialsSection />
-      </main>
+      <HeroSection />
+      <FeaturesSection />
+      <HowItWorksSection />
+      <PricingSection />
+      <TestimonialsSection />
+      <CTASection />
       <Footer />
     </div>
   );
